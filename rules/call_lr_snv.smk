@@ -32,7 +32,11 @@ rule lr_ont_dv:
         ref = os.path.abspath(config['reference']['CHM13'])
     output:
         dv_vcf = temp("c2_call_lr_snv/sample_gvcf/{sample}/{sample}.deepvariant.vcf.gz"),
-        dv_gvcf = "c2_call_lr_snv/sample_gvcf/{sample}/{sample}.deepvariant.g.vcf.gz"
+        dv_gvcf = "c2_call_lr_snv/sample_gvcf/{sample}/{sample}.deepvariant.g.vcf.gz",
+        pmd_phased_vcf = "c2_call_lr_snv/sample_gvcf/{sample}/{sample}.pmd.phased.vcf.gz",
+        pmd_phased_vcf_tbi = "c2_call_lr_snv/sample_gvcf/{sample}/{sample}.pmd.phased.vcf.gz.tbi",
+        pmd_haplotag_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.pmd.haplotagged.bam",
+        pmd_haplotag_bam_bai = "c2_call_lr_snv/sample_bam/{sample}/{sample}.pmd.haplotagged.bam.bai"
     params:
         PMD_DIR = "c2_call_lr_snv/sample_gvcf/{sample}/pepper_margin_deepvariant"
     singularity:
@@ -48,13 +52,19 @@ rule lr_ont_dv:
             --bam {input.ont_bam} --fasta {input.ref} \
             --output_dir {params.PMD_DIR} --output_prefix {wildcards.sample} \
             --threads {threads} --sample_name {wildcards.sample} \
-            --ont_r10_q20 --gvcf
+            --ont_r10_q20 --gvcf --phased_output
         final_vcf=$(find {params.PMD_DIR} -name '{wildcards.sample}.vcf.gz' -print -quit)
         final_gvcf=$(find {params.PMD_DIR} -name '{wildcards.sample}.g.vcf.gz' -print -quit)
-        test -n "$final_vcf" && test -n "$final_gvcf"
+        phased_vcf=$(find {params.PMD_DIR} -type f -name '*.phased.vcf*' -not -path '*/intermediate_files/*' -print -quit)
+        phased_bam=$(find {params.PMD_DIR} -type f -name '*.haplotagged.bam' -not -path '*/intermediate_files/*' -print -quit)
+        test -n "$final_vcf" && test -n "$final_gvcf" && test -n "$phased_vcf" && test -n "$phased_bam"
         cp "$final_vcf" {output.dv_vcf}
         cp "$final_gvcf" {output.dv_gvcf}
+        bcftools view -Oz -o {output.pmd_phased_vcf} "$phased_vcf"
+        cp "$phased_bam" {output.pmd_haplotag_bam}
         tabix -f {output.dv_gvcf}
+        tabix -f {output.pmd_phased_vcf}
+        samtools index -@ {threads} {output.pmd_haplotag_bam}
         """
 
 rule prepare_chr_bed:

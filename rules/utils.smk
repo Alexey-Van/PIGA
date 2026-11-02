@@ -46,7 +46,7 @@ def get_lr_bam_input(wildcards):
     if "lr_bam" in config:
         return config["lr_bam"]
     else:
-        return "c2_call_lr_snv/sample_bam/{sample}/{sample}.ont.srt.bam"
+        return "c2_call_lr_snv/sample_bam/{sample}/{sample}.pmd.haplotagged.bam"
 
 def get_consensus_fasta_input(wildcards):
     if "consensus_fasta" in config:

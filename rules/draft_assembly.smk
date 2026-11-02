@@ -154,7 +154,7 @@ rule merge_variants:
 rule personal_ref_ont_minimap2:
     input:
         consensus_fasta = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.fasta",
-        lr_fastqs = config['lr_fastqs']
+        pmd_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.pmd.haplotagged.bam"
     output:
         ont_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.srt.bam"
     threads: 8
@@ -162,7 +162,7 @@ rule personal_ref_ont_minimap2:
         mem_mb = 64*1024
     shell:
         """
-        minimap2 -t {threads} -ax map-ont {input.consensus_fasta} {input.lr_fastqs} | \
+        samtools fastq -T HP {input.pmd_bam} | minimap2 -y -t {threads} -ax map-ont {input.consensus_fasta} - | \
             samtools sort -@ {threads} -o {output.ont_ref_bam} -
         samtools index -@ {threads} {output.ont_ref_bam}
         """
@@ -293,9 +293,7 @@ rule liftover_chrX_par_region:
 
 rule phase_assembly:
     input:
-        consensus_fasta = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.fasta",
-        sample_switch_correct_final_vcf = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.merge.phase.switch_correct.vcf.gz",
-        ont_fastq = config['lr_fastqs']
+        tagged_ont_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.srt.bam"
     output:
         hap1_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap1.fasta",
         hap2_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap2.fasta"
@@ -308,9 +306,7 @@ rule phase_assembly:
     shell:
         """
         python3 scripts/draft_assembly/ont_hifiasm_assembly.py \
-            --reference {input.consensus_fasta} \
-            --variants {input.sample_switch_correct_final_vcf} \
-            --reads {input.ont_fastq} \
+            --tagged-bam {input.tagged_ont_bam} \
             --medaka-model {params.medaka_model} \
             --output-dir {params.assembly_dir} \
             --sample {wildcards.sample} --threads {threads}
