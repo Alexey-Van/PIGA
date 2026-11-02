@@ -37,7 +37,7 @@ The file must be space-delimited, with:
 `sr_fastqs`: Specify the paths to the paired-end short-read FASTQ files.
 Use `{sample}` as a wildcard; it will be automatically replaced with sample names from the `samples` file.
 
-`lr_zmw_fastqs`: Specify the path(s) to PacBio ZMW-grouped (subreads) FASTQ files.
+`lr_fastqs`: Specify the path(s) to ONT long-read FASTQ files.
 Use `{sample}` as a wildcard; it will be automatically replaced with sample names from the `samples` file.
 
 `external_pangenome`: Provide the path to the external pangenome graph (GBZ format), such as the HGSVC3/HPRC minigraph–cactus pangenome assembly.

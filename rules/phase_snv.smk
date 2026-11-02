@@ -23,7 +23,7 @@ rule consensus_vcf_whatshap_phase:
     input:
         ref = config['reference']['CHM13'],
         unphase_sample_vcf = "c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.vcf.gz",
-        zmw_bam = get_zmw_bam_input
+        ont_bam = get_lr_bam_input
     output:
         phase_sample_vcf = "c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.whatshap.vcf.gz"
     threads: 4
@@ -35,7 +35,7 @@ rule consensus_vcf_whatshap_phase:
             --reference {input.ref} \
             --output {output.phase_sample_vcf} \
             {input.unphase_sample_vcf} \
-            {input.zmw_bam}
+            {input.ont_bam}
 
         tabix {output.phase_sample_vcf}
         """

@@ -8,13 +8,9 @@ This pipeline performs reference-guided draft diploid genome assembly.
 
 ### Description
 
-- Partition long reads into haplotypes with WhatsHap.
-- Detect intervals with enough partitioned long-read coverage and extract their contained reads to perform assembly.
-- Trim the subreads with MECAT2.
-- Perform subinterval assembly with wtdbg2.
-- Polish contigs using subreads with Racon and Arrow.
-- Recalibrate the base quality of contigs and filter low-quality contigs.
-- Perform interval assembly with phasebook.
+- Align ONT reads with minimap2 and haplotag them with WhatsHap.
+- Assemble reads from each haplotype with hifiasm in ONT mode.
+- Polish each haplotype assembly with Medaka.
 - Detect structural errors in contigs with Sniffles2 and Jasmine.
 - Polish contigs using short reads with Freebayes.
 - Filter contig regions with switch errors by comparing assembly haplotype to SNV haplotype.
@@ -29,10 +25,8 @@ This pipeline performs reference-guided draft diploid genome assembly.
 - [Samtools](https://github.com/samtools/samtools)
 - [Bcftools](https://github.com/samtools/bcftools)
 - [Seqkit](https://github.com/shenwei356/seqkit)
-- [MECAT2](https://github.com/xiaochuanle/MECAT2)
-- [wtdbg2](https://github.com/ruanjue/wtdbg2)
-- [Racon](https://github.com/isovic/racon)
-- [Arrow](https://github.com/PacificBiosciences/gcpp#)
+- [hifiasm](https://github.com/chhylp123/hifiasm)
+- [Medaka](https://github.com/nanoporetech/medaka)
 - [cutadapt](https://github.com/marcelm/cutadapt/)
 - [phasebook](https://github.com/phasebook/phasebook)
 - [Sniffles2](https://github.com/fritzsedlazeck/Sniffles)
@@ -53,14 +47,10 @@ The file must be space-delimited, with:
 `sr_fastqs`: Specify the paths to the paired-end short-read FASTQ files.
 Use `{sample}` as a wildcard; it will be automatically replaced with sample names from the `samples` file.
 
-`lr_hifi_fastqs`: Specify the path(s) to PacBio HiFi long-read FASTQ files.
+`lr_fastqs`: Specify the path(s) to ONT long-read FASTQ files.
 Use `{sample}` as a wildcard.
 
-`lr_zmw_fastqs`: Specify the path(s) to PacBio ZMW FASTQ files.
-Use `{sample}` as a wildcard.
-
-`lr_subreads_bam`: Specify the path(s) to PacBio subreads BAM files.
-Use `{sample}` as a wildcard.
+`medaka_model`: Medaka consensus model matching the flow cell chemistry and basecaller. `auto` selects from read metadata; use an explicit model name if that metadata is missing.
 
 `reference`:
 

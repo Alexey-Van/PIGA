@@ -3,45 +3,20 @@ rule all_call_lr_snv:
         f"c2_call_lr_snv/merged_vcf/{config['prefix']}.deepvariant.whatshap.beagle.vcf.gz"
 
 
-rule lr_hifi_pbmm2_map:
+rule lr_ont_minimap2_map:
     input:
-        hifi_fq = config['lr_hifi_fastqs'],
+        ont_fq = config['lr_fastqs'],
         ref = config['reference']['CHM13']
     output:
-        hifi_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.hifi.srt.bam"
+        ont_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.ont.srt.bam"
     threads: 8
     resources:
         mem_mb = 60*1024
     shell:
         """
-        pbmm2 align -j {threads} -J 1 \
-            {input.ref} \
-            {input.hifi_fq} \
-            {output.hifi_bam} \
-            --preset CCS \
-            --log-level INFO --sort \
-            --rg "@RG\\tID:{wildcards.sample}.hifi\\tSM:{wildcards.sample}.hifi" \
-            --sample {wildcards.sample}.hifi
-        """
-
-rule lr_zmw_pbmm2_map:
-    input:
-        zmw_fq = config['lr_zmw_fastqs'],
-        ref = config['reference']['CHM13']
-    output:
-        zmw_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.zmw.srt.bam"
-    threads: 8
-    resources:
-        mem_mb = 60*1024
-    shell:
-        """
-        pbmm2 align -j {threads} -J 1 \
-            {input.ref} \
-            {input.zmw_fq} \
-            {output.zmw_bam} \
-            --log-level INFO --sort \
-            --rg "@RG\\tID:{wildcards.sample}\\tSM:{wildcards.sample}" \
-            --sample {wildcards.sample}
+        minimap2 -t {threads} -ax map-ont {input.ref} {input.ont_fq} | \
+            samtools sort -@ {threads} -o {output.ont_bam} -
+        samtools index -@ {threads} {output.ont_bam}
         """
 
 #How to run
@@ -51,43 +26,34 @@ rule lr_zmw_pbmm2_map:
 #             -B $(pwd):/project \
 #             -B $(pwd)/{params.TMP_DIR}:/tmp \
 #             -B {params.REF_DIR}:/project/{params.REF_DIR} \
-rule lr_hifi_dv:
+rule lr_ont_dv:
     input:
-        hifi_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.hifi.srt.bam",
+        ont_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.ont.srt.bam",
         ref = os.path.abspath(config['reference']['CHM13'])
     output:
         dv_vcf = temp("c2_call_lr_snv/sample_gvcf/{sample}/{sample}.deepvariant.vcf.gz"),
         dv_gvcf = "c2_call_lr_snv/sample_gvcf/{sample}/{sample}.deepvariant.g.vcf.gz"
     params:
-        TMP_DIR = "c2_call_lr_snv/sample_gvcf/{sample}/tmp",
-        DV_INTERMEDIATE_DIR = "c2_call_lr_snv/sample_gvcf/{sample}/dv_intermediate_outputs",
-        REF_DIR = lambda wildcards, input: os.path.dirname(input.ref)
+        PMD_DIR = "c2_call_lr_snv/sample_gvcf/{sample}/pepper_margin_deepvariant"
     singularity:
-        "file://scripts/call_lr_snv/deepvariant.sif"
+        "file://scripts/call_lr_snv/pepper_deepvariant.sif"
     threads: 8
     resources:
         mem_mb = 60*1024
     shell:
         """
-        if [ -d {params.DV_INTERMEDIATE_DIR} ]; then
-            rm -rf {params.DV_INTERMEDIATE_DIR} {params.TMP_DIR}
-        fi
-        mkdir -p {params.DV_INTERMEDIATE_DIR}
-        mkdir -p {params.TMP_DIR}
-
-        export TMPDIR={params.TMP_DIR}
-        /opt/deepvariant/bin/run_deepvariant \
-            --num_shards {threads} \
-            --model_type=PACBIO \
-            --ref={input.ref} \
-            --reads={input.hifi_bam} \
-            --output_vcf={output.dv_vcf} \
-            --output_gvcf={output.dv_gvcf} \
-            --intermediate_results_dir={params.DV_INTERMEDIATE_DIR} \
-            --make_examples_extra_args="vsc_min_count_snps=1,vsc_min_fraction_snps=0.12,vsc_min_count_indels=2,vsc_min_fraction_indels=0.06" \
-            --sample_name {wildcards.sample}
-
-        rm -rf {params.DV_INTERMEDIATE_DIR}/*
+        rm -rf {params.PMD_DIR}
+        mkdir -p {params.PMD_DIR}
+        run_pepper_margin_deepvariant call_variant \
+            --bam {input.ont_bam} --fasta {input.ref} \
+            --output_dir {params.PMD_DIR} --output_prefix {wildcards.sample} \
+            --threads {threads} --sample_name {wildcards.sample} \
+            --ont_r10_q20 --gvcf
+        final_vcf=$(find {params.PMD_DIR} -name '{wildcards.sample}.vcf.gz' -print -quit)
+        final_gvcf=$(find {params.PMD_DIR} -name '{wildcards.sample}.g.vcf.gz' -print -quit)
+        test -n "$final_vcf" && test -n "$final_gvcf"
+        cp "$final_vcf" {output.dv_vcf}
+        cp "$final_gvcf" {output.dv_gvcf}
         tabix -f {output.dv_gvcf}
         """
 
@@ -165,7 +131,7 @@ rule glnexus_vcf_merge:
 rule lr_whatshap_genotype:
     input:
         merged_glnexus_vcf = f"c2_call_lr_snv/merged_vcf/{config['prefix']}.deepvariant.filter.biallelic_snp.vcf.gz",
-        zmw_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.zmw.srt.bam",
+        ont_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.ont.srt.bam",
         ref = config['reference']['CHM13']
     output:
         whatshap_tmp_snp_vcf = temp("c2_call_lr_snv/sample_gvcf/{sample}/{sample}.deepvariant.whatshap.tmp.biallelic_snp.vcf.gz"),
@@ -178,7 +144,7 @@ rule lr_whatshap_genotype:
         mem_mb = 60*1024
     shell:
         """
-        whatshap genotype -o {output.whatshap_tmp_snp_vcf} -r {input.ref} --ignore-read-groups --sample {wildcards.sample} {input.merged_glnexus_vcf} {input.zmw_bam}
+        whatshap genotype -o {output.whatshap_tmp_snp_vcf} -r {input.ref} --ignore-read-groups --sample {wildcards.sample} {input.merged_glnexus_vcf} {input.ont_bam}
         tabix -f {output.whatshap_tmp_snp_vcf}
 
         bcftools view -s {wildcards.sample} {output.whatshap_tmp_snp_vcf} -Oz -o {output.whatshap_snp_vcf}

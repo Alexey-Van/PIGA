@@ -31,7 +31,6 @@ dependencies:
   - kmc
   - bcftools
   - minimap2
-  - hiphase
   - pangenie
   - hdf5
   - cutesv=2.1.1
@@ -39,16 +38,15 @@ dependencies:
   - meryl
   - bwa
   - gatk4
-  - pbmm2
   - glnexus
   - whatshap=1.4
   - beagle=4.1
   - shapeit4
   - merfin
   - graphaligner
-  - wtdbg
   - racon
-  - pbgcpp
+  - medaka
+  - hifiasm>=0.21.0
   - cutadapt
   - sniffles
   - jasminesv

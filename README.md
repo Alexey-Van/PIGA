@@ -51,6 +51,8 @@ cd test_data
 bash download.sh
 ```
 
+The published test archive contains the original PacBio example reads. For this ONT configuration, point `lr_fastqs` to your R10.4.1 Q20 ONT FASTQ files; the legacy PacBio reads are not used by the workflow.
+
 #### Configure the workflow(config/config.yaml)
 
 The configuration file should contain:
@@ -63,14 +65,10 @@ The configuration file should contain:
 - `sr_fastqs`: Paths to the paired-end short-read FASTQ files.
   Use `{sample}` as a wildcard.
 
-- `lr_hifi_fastqs`: Paths to PacBio HiFi long-read FASTQ files.
+- `lr_fastqs`: Paths to ONT long-read FASTQ files.
   Use `{sample}` as a wildcard.
 
-- `lr_zmw_fastqs`: Paths to PacBio ZMW FASTQ files (selected representative read for each ZMW).
-  Use `{sample}` as a wildcard.
-
-- `lr_subreads_bam`: Paths to PacBio subreads BAM files.
-  Use `{sample}` as a wildcard.
+- `medaka_model`: Medaka model matching the ONT flow cell chemistry and basecaller model. `auto` asks Medaka to select a model from read metadata; set an explicit Medaka model name if the FASTQ files do not retain basecaller metadata.
 
 - `reference`:
   - `CHM13`: Path to the CHM13 reference genome in FASTA format.

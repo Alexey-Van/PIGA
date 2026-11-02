@@ -5,7 +5,6 @@
 # - cactus-gfa-tools
 # - orca
 # - Beagle utilities
-# - MECAT2
 # - Merqury
 # - DeepVariant
 
@@ -69,17 +68,6 @@ mv bin/correct_bam ${binDir}
 mv bin/secphase ${binDir}
 cd ${buildDir}
 
-# Build MECAT2
-git clone https://github.com/xiaochuanle/MECAT2.git
-cd MECAT2
-make -j ${thread}
-mv */bin/mecat2map ${binDir}
-mv */bin/mecat2pm4 ${binDir}
-mv */bin/mecat2lcr ${binDir}
-mv */bin/mecat2splitreads ${binDir}
-mv */bin/mecat2trimbases ${binDir}
-cd ${buildDir}
-
 # Build cactus-gfa-tools
 git clone https://github.com/ComparativeGenomicsToolkit/cactus-gfa-tools.git
 cd cactus-gfa-tools
@@ -129,5 +117,8 @@ else
 fi
 
 mv deepvariant*.sif ${calllrDir}/deepvariant.sif
+
+# Download PEPPER-Margin-DeepVariant for ONT variant calling.
+singularity pull ${calllrDir}/pepper_deepvariant.sif docker://kishwars/pepper_deepvariant:r0.8
 cd ${mainDir}
 rm -rf ${buildDir}

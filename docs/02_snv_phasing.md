@@ -37,10 +37,10 @@ The file must be space-delimited, with:
 If omitted, the workflow will use the default:
 `c3_merge_snv/merfin/merge/{prefix}.consensus.merfin.vcf.gz`
 
-`zmw_bam` _(optional)_: Path to the PacBio ZMW BAM file for each sample.
+`lr_bam` _(optional)_: Path to an ONT BAM file for each sample.
 Use `{sample}` as a wildcard.
 If omitted, the workflow will use the default:
-`c2_call_lr_snv/sample_bam/{sample}/{sample}.zmw.srt.bam`
+`c2_call_lr_snv/sample_bam/{sample}/{sample}.ont.srt.bam`
 
 ### Usage
 
