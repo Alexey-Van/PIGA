@@ -28,7 +28,7 @@ rule personal_pangenome:
         pangenome_hapl = f"c5_personal_ref/external_pangenome/external.hapl",
         sr_fq1 = config['sr_fastqs'][0],
         sr_fq2 = config['sr_fastqs'][1],
-        lr_hifi_fastqs = config['lr_hifi_fastqs']
+        lr_fastqs = config['lr_fastqs']
     output:
         kmer_fq_list = "c5_personal_ref/sample_reference/{sample}/{sample}.fq.list",
         sample_kff = "c5_personal_ref/sample_reference/{sample}/{sample}.kff",
@@ -45,7 +45,7 @@ rule personal_pangenome:
         mem_mb = 200*1024
     shell:
         """
-        ls {input.sr_fq1} {input.sr_fq2} {input.lr_hifi_fastqs} > {output.kmer_fq_list}
+        ls {input.sr_fq1} {input.sr_fq2} > {output.kmer_fq_list}
         mkdir -p {params.prefix}_tmp
         kmc -k29 -okff -t{threads} -hp @{output.kmer_fq_list} {params.prefix} {params.prefix}_tmp
         rm -rf {params.prefix}_tmp
@@ -57,7 +57,7 @@ rule personal_pangenome:
 
 rule graph_call:
     input:
-        lr_zmw_fastqs = config['lr_zmw_fastqs'],
+        lr_fastqs = config['lr_fastqs'],
         sr_fq1 = config['sr_fastqs'][0],
         sr_fq2 = config['sr_fastqs'][1],
         sample_gfa = "c5_personal_ref/sample_reference/{sample}/{sample}.gfa",
@@ -74,7 +74,7 @@ rule graph_call:
         mem_mb = 100 * 1024,
     shell:
         """
-        GraphAligner -t {threads} -g {input.sample_gfa} -f {input.lr_zmw_fastqs} -a {output.sample_gam} \
+        GraphAligner -t {threads} -g {input.sample_gfa} -f {input.lr_fastqs} -a {output.sample_gam} \
         --seeds-mxm-length 30 --seeds-mem-count 10000 --bandwidth 15 --multimap-score-fraction 0.99 --min-alignment-score 100 --clip-ambiguous-ends 100 --overlap-incompatible-cutoff 0.15 --max-trace-count 5 --mem-index-no-wavelet-tree
         vg giraffe -t {threads} --named-coordinates -Z {input.sample_gbz} -m {input.sample_min} -z {input.sample_zipcodes} -d {input.sample_dist} -f {input.sr_fq1} -f {input.sr_fq2} >> {output.sample_gam}
         vg pack -t {threads} -x {input.sample_gfa} -g {output.sample_gam} -o {output.sample_pack}

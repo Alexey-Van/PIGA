@@ -135,7 +135,6 @@ rule prepare_sample_kmer:
     input:
         sr_fq1 = config['sr_fastqs'][0],
         sr_fq2 = config['sr_fastqs'][1],
-        hifi_fq = config['lr_hifi_fastqs'],
     output:
         sample_meryl = "c3_merge_snv/sample_meryl/{sample}/{sample}.meryl/merylIndex"
     threads: 4
@@ -146,7 +145,7 @@ rule prepare_sample_kmer:
         sample_meryl_dir = lambda wildcards, output: os.path.dirname(output.sample_meryl)
     shell:
         """
-        meryl count k=21 memory={resources.max_mem_gb} threads={threads} output {params.sample_meryl_dir} {input.sr_fq1} {input.sr_fq2} {input.hifi_fq}
+        meryl count k=21 memory={resources.max_mem_gb} threads={threads} output {params.sample_meryl_dir} {input.sr_fq1} {input.sr_fq2}
         """
 
 rule prepare_ref_kmer:

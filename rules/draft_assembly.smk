@@ -116,7 +116,7 @@ rule personal_ref_dv:
         export TMPDIR={params.TMP_DIR}
         /opt/deepvariant/bin/run_deepvariant \
             --num_shards {threads} \
-            --model_type=PACBIO \
+            --model_type=WGS \
             --ref={input.consensus_fasta} \
             --reads={input.ngs_dedup_bam} \
             --intermediate_results_dir={params.DV_INTERMEDIATE_DIR} \
@@ -151,31 +151,29 @@ rule merge_variants:
         tabix -f {output.sample_personal_merge_vcf}
         """
 
-rule personal_ref_zmw_pbmm2:
+rule personal_ref_ont_minimap2:
     input:
         consensus_fasta = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.fasta",
-        lr_zmw_fastqs = config['lr_zmw_fastqs']
+        pmd_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.pmd.haplotagged.bam"
     output:
-        zmw_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.zmw.srt.bam"
+        ont_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.srt.bam"
     threads: 8
     resources:
         mem_mb = 64*1024
     shell:
         """
-        pbmm2 align -j {threads} -J 1 \
-            {input.consensus_fasta} \
-            {input.lr_zmw_fastqs} \
-            {output.zmw_ref_bam} \
-            --sort
+        samtools fastq -T HP {input.pmd_bam} | minimap2 -y -t {threads} -ax map-ont {input.consensus_fasta} - | \
+            samtools sort -@ {threads} -o {output.ont_ref_bam} -
+        samtools index -@ {threads} {output.ont_ref_bam}
         """
 
 rule sample_assembly_vcf_whatshap:
     input:
         consensus_fasta = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.fasta",
         sample_assembly_merge_vcf = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.merge.vcf.gz",
-        zmw_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.zmw.srt.bam"
+        ont_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.srt.bam"
     output:
-        sample_assembly_merge_whatshap_vcf = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.merge.phase.vcf.gz",
+        sample_assembly_merge_whatshap_vcf = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.merge.whatshap_phase.vcf.gz",
         sample_phase_block_list = "c6_draft_assembly/sample_assembly/{sample}/{sample}.phase_block.list"
     threads: 4
     resources:
@@ -187,7 +185,7 @@ rule sample_assembly_vcf_whatshap:
             --reference {input.consensus_fasta} \
             --output {output.sample_assembly_merge_whatshap_vcf} \
             {input.sample_assembly_merge_vcf} \
-            {input.zmw_ref_bam} {input.sample_assembly_merge_vcf}
+            {input.ont_ref_bam} {input.sample_assembly_merge_vcf}
 
         tabix -f {output.sample_assembly_merge_whatshap_vcf}
 
@@ -278,41 +276,6 @@ rule correct_switch_error:
         """
 
 
-rule personal_ref_subreads_pbmm2:
-    input:
-        consensus_fasta = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.fasta",
-        lr_subreads_bam = config['lr_subreads_bam']
-    output:
-        subreads_ref_unsort_bam = temp("c6_draft_assembly/sample_assembly/{sample}/{sample}.lr_subreads.bam"),
-        subreads_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.lr_subreads.srt.bam"
-    threads: 16
-    resources:
-        mem_mb = 120*1024
-    shell:
-        """
-        pbmm2 align -j {threads} {input.consensus_fasta} {input.lr_subreads_bam} {output.subreads_ref_unsort_bam}
-        samtools sort -@ {threads} -m 4G -T {wildcards.sample} -O bam -o {output.subreads_ref_bam} {output.subreads_ref_unsort_bam}
-        samtools index -@ {threads} {output.subreads_ref_bam}
-        """
-
-rule personal_ref_hifi_pbmm2:
-    input:
-        consensus_fasta = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.fasta",
-        lr_hifi_fastqs = config['lr_hifi_fastqs']
-    output:
-        hifi_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.lr_hifi.srt.bam"
-    threads: 8
-    resources:
-        mem_mb = 64*1024
-    shell:
-        """
-        pbmm2 align -j {threads} -J 1 \
-            {input.consensus_fasta} \
-            {input.lr_hifi_fastqs} \
-            {output.hifi_ref_bam} \
-            --sort --preset CCS
-        """
-
 #PAR_region
 rule liftover_chrX_par_region:
     input:
@@ -330,36 +293,23 @@ rule liftover_chrX_par_region:
 
 rule phase_assembly:
     input:
-        consensus_fasta = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.fasta",
-        ngs_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.srt.bam",
-        subreads_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.lr_subreads.srt.bam",
-        hifi_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.lr_hifi.srt.bam",
-        sample_switch_correct_final_vcf = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.merge.phase.switch_correct.vcf.gz",
-        chrX_personal_par = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.chrX_PAR.bed"
+        tagged_ont_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.srt.bam"
     output:
         hap1_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap1.fasta",
         hap2_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap2.fasta"
     params:
-        sex = get_sex,
-        tmp_dir = "c6_draft_assembly/sample_assembly/{sample}/{sample}_tmp",
+        medaka_model = config['medaka_model'],
         assembly_dir = "c6_draft_assembly/sample_assembly/{sample}/assembly"
     threads: 16
     resources:
         mem_mb = 150*1024
     shell:
         """
-        python3 scripts/draft_assembly/phase_assembly.version2.py \
-            --ngs-bam {input.ngs_bam} \
-            --subread-bam {input.subreads_ref_bam} \
-            --hifi-bam {input.hifi_ref_bam} \
-            -r {input.consensus_fasta} \
-            -v {input.sample_switch_correct_final_vcf} \
-            -p {wildcards.sample} \
-            --par-bed {input.chrX_personal_par} \
-            -g {params.sex} \
-            -o {params.assembly_dir} \
-            -T {params.tmp_dir} \
-            -t {threads}
+        python3 scripts/draft_assembly/ont_hifiasm_assembly.py \
+            --tagged-bam {input.tagged_ont_bam} \
+            --medaka-model {params.medaka_model} \
+            --output-dir {params.assembly_dir} \
+            --sample {wildcards.sample} --threads {threads}
         """
 
 checkpoint assembly_list:

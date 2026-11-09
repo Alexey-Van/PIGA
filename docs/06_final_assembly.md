@@ -23,7 +23,7 @@ This pipeline reconstructs the final diploid assembly by inferring the diploid p
 - [Bcftools](https://github.com/samtools/bcftools)
 - [Pangenie](https://github.com/eblerjana/PanGenie)
 - [MarginPhase](https://github.com/benedictpaten/marginPhase)
-- [Hiphase](https://github.com/PacificBiosciences/HiPhase)
+- WhatsHap for ONT read phasing
 - [minimap2](https://github.com/lh3/minimap2)
 - [Secphase](https://github.com/mobinasri/secphase)
 - [cuteSV](https://github.com/tjiangHIT/cuteSV)
@@ -45,10 +45,7 @@ The file must be space-delimited, with:
 `sr_fastqs`: Specify the paths to the paired-end short-read FASTQ files.
 Use `{sample}` as a wildcard; it will be automatically replaced with sample names from the `samples` file.
 
-`lr_hifi_fastqs`: Specify the path(s) to PacBio HiFi long-read FASTQ files.
-Use `{sample}` as a wildcard.
-
-`lr_zmw_fastqs`: Specify the path(s) to PacBio ZMW FASTQ files.
+`lr_fastqs`: Specify the path(s) to ONT long-read FASTQ files.
 Use `{sample}` as a wildcard.
 
 `train_sample_list`: Path to a file listing samples used for model training.

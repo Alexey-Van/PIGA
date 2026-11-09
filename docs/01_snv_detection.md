@@ -1,6 +1,6 @@
 # SNV detection
 
-This pipeline performs population-level SNV detection by leveraging PacBio long reads and Illumina short reads.
+This pipeline performs population-level SNV detection by leveraging ONT long reads and Illumina short reads.
 
 <img align="middle" width="800" src="snv_detection.jpg"/>
 
@@ -59,15 +59,15 @@ The output file should contain:
 
 ### Description
 
-- Detect candidate SNVs using PacBio HiFi reads with DeepVariant.
+- Detect candidate SNVs using ONT reads with PEPPER-Margin-DeepVariant.
 - Jointly call SNVs at the population level with GLnexus.
-- Genotype SNVs using PacBio ZMW reads with PacBio ZMW reads with WhatsHap.
+- Jointly genotype per-sample gVCFs with GLnexus and genotype sites using ONT reads with WhatsHap.
 - Refine the SNV genotypes from genotype likelihood with Beagle4.
 
 ### Requirement
 
 - [minimap2](https://github.com/lh3/minimap2)
-- [DeepVariant](https://github.com/google/deepvariant)
+- [PEPPER-Margin-DeepVariant](https://github.com/kishwarshafin/pepper)
 - [GLnexus](https://github.com/dnanexus-rnd/GLnexus)
 - [Bcftools](https://github.com/samtools/bcftools)
 - [WhatsHap](https://github.com/whatshap/whatshap)
@@ -83,11 +83,10 @@ The file must be space-delimited, with:
 - Column 1: Sample name
 - Column 2: Sample sex
 
-`lr_hifi_fastqs`: Specify the path(s) to PacBio HiFi long-read FASTQ files for each sample.
+`lr_fastqs`: Specify the path(s) to ONT long-read FASTQ files for each sample.
 Use `{sample}` as a wildcard; it will be automatically replaced with sample names from the `samples` file.
 
-`lr_zmw_fastqs`: Specify the path(s) to PacBio ZMW FASTQ files.
-Use `{sample}` as a wildcard; it will be automatically replaced with sample names from the `samples` file.
+The ONT caller uses PEPPER-Margin-DeepVariant's R10 Q20 profile and produces gVCFs for the existing GLnexus joint-calling step.
 
 `reference`:
 
@@ -111,7 +110,7 @@ The output file should contain:
 ### Description
 
 - Merge the Long-read (LR) and Short-read (SR) SNV callsets and select the SNV genotypes based on Hardy–Weinberg equilibrium P-value.
-- Filter the SNVs for each individual based on kmers from short reads and HiFi reads with Merfin.
+- Filter the SNVs for each individual based on Illumina k-mers with Merfin.
 
 ### Requirement
 
@@ -125,8 +124,7 @@ The configuration file should contain:
 `sr_fastqs`: Specify the paths to the paired-end short-read FASTQ files.
 Use `{sample}` as a wildcard; it will be automatically replaced with sample names from the `samples` file.
 
-`lr_hifi_fastqs`: Specify the path(s) to PacBio HiFi long-read FASTQ files for each sample.
-Use `{sample}` as a wildcard; it will be automatically replaced with sample names from the `samples` file.
+Only Illumina reads are used to build the Merfin k-mer database.
 
 `reference`:
 

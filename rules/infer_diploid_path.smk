@@ -20,7 +20,6 @@ rule kmc_prepare_sample_kmer:
     input:
         sr_fq1 = config['sr_fastqs'][0],
         sr_fq2 = config['sr_fastqs'][1],
-        hifi_fq = config['lr_hifi_fastqs']
     output:
         kmer_list = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.kmer.list",
         kff = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.kmer.kff"
@@ -35,7 +34,6 @@ rule kmc_prepare_sample_kmer:
         > {output.kmer_list}
         echo {input.sr_fq1} >> {output.kmer_list}
         echo {input.sr_fq2} >> {output.kmer_list}
-        echo {input.hifi_fq} >> {output.kmer_list}
         
         mkdir -p {params.tmp_dir}
         kmc -k29 -m28 -okff -t{threads} -hp @{output.kmer_list} {params.prefix} {params.tmp_dir}
@@ -237,47 +235,45 @@ rule genotype_phase:
 
 rule sample_ref_realign:
     input:
-        zmw_fq = config['lr_zmw_fastqs'],
+        ont_fq = config['lr_fastqs'],
         merge_ref_fasta = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.ref.fasta",
     output:
-        zmw_bam = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.ref.zmw.bam")
+        ont_bam = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.ref.ont.bam")
     threads: 8
     resources:
         mem_mb= 60*1024,
     shell:
         """
-        minimap2 -t {threads} -ax map-pb -Y -L --eqx --cs {input.merge_ref_fasta} {input.zmw_fq} | \
-            samtools view -@ {threads} -hb - | samtools sort -@ {threads} -o {output.zmw_bam}
-        samtools index -@ {threads} {output.zmw_bam}
+        minimap2 -t {threads} -ax map-ont -Y -L --eqx --cs {input.merge_ref_fasta} {input.ont_fq} | \
+            samtools view -@ {threads} -hb - | samtools sort -@ {threads} -o {output.ont_bam}
+        samtools index -@ {threads} {output.ont_bam}
         """
 
-rule hiphase_phase:
+rule whatshap_phase_ont:
     input:
         merge_ref_fasta = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.ref.fasta",
-        zmw_bam = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.ref.zmw.bam",
+        ont_bam = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.ref.ont.bam",
         genotype_final_vcf = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.genotype.vcf.gz"
     output:
-        hiphase_vcf = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hiphase.phase.vcf.gz"
+        whatshap_vcf = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.whatshap.phase.vcf.gz"
     threads: 8
     resources:
         mem_mb= 60*1024
     shell:
         """
-        hiphase -t {threads} \
+        whatshap phase -t {threads} \
             --ignore-read-groups \
             --reference {input.merge_ref_fasta} \
-            --vcf {input.genotype_final_vcf} \
-            --bam {input.zmw_bam} \
-            --output-vcf {output.hiphase_vcf} \
-            --global-realignment-cputime 600
+            --output {output.whatshap_vcf} \
+            {input.genotype_final_vcf} {input.ont_bam}
         
-        tabix -f {output.hiphase_vcf}
+        tabix -f {output.whatshap_vcf}
         """
 
 rule margin_phase:
     input:
         merge_ref_fasta = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.ref.fasta",
-        zmw_bam = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.ref.zmw.bam",
+        ont_bam = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.ref.ont.bam",
         genotype_final_vcf = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.genotype.vcf.gz"
     output:
         margin_vcf_gz = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.margin.phase.vcf.gz"
@@ -290,7 +286,7 @@ rule margin_phase:
     shell:
         """
         margin phase \
-            {input.zmw_bam} \
+            {input.ont_bam} \
             {input.merge_ref_fasta} \
             {input.genotype_final_vcf} \
             {params.phase_json} \
@@ -308,7 +304,7 @@ rule integrate_phase:
         pangenie_phase_vcf = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.pangenie.phase.vcf.gz",
         assembly_phase_vcf = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.assembly.phase.vcf.gz",
         snv_phase_vcf = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.snv.phase.vcf.gz",
-        hiphase_vcf = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hiphase.phase.vcf.gz",
+        whatshap_vcf = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.whatshap.phase.vcf.gz",
         concat_margin_vcf = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.margin.phase.vcf.gz"
     output:
         integrate_phase_log = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.integrate.phase.log"),
@@ -323,7 +319,7 @@ rule integrate_phase:
             {input.snv_phase_vcf} \
             {input.assembly_phase_vcf} \
             {input.pangenie_phase_vcf} \
-            {input.hiphase_vcf} \
+            {input.whatshap_vcf} \
             {input.concat_margin_vcf} | \
             python3 scripts/infer_diploid_path/graph_phase_intergrate.py - {output.integrate_phase_vcf} sample 2:sample,3:sample,4:sample,5:sample,6:sample > {output.integrate_phase_log}
         
@@ -407,7 +403,7 @@ rule secphase_correct_bam:
             samtools sort -@ {threads} -n | samtools view -@ {threads} -hb \
             > {output.complete_assembly_phase_assembly_bam}
         
-        secphase -@ {threads} --hifi -i {output.complete_assembly_phase_assembly_bam} -f {output.merge_complete_assembly_fa} -o {params.secphase_dir}
+        secphase -@ {threads} --ont -i {output.complete_assembly_phase_assembly_bam} -f {output.merge_complete_assembly_fa} -o {params.secphase_dir}
         correct_bam --threads {threads} -i {output.complete_assembly_phase_assembly_bam} -P {output.secphase_log} -o {output.complete_assembly_correct_bam} --primaryOnly -m 0 -a 0
         
         samtools view -@ {threads} {output.complete_assembly_correct_bam} | grep H1 | awk '{{print ">"$1;print$10}}' | seqkit rmdup -o {output.phase_assembly_correct_hap1_fa}
@@ -457,10 +453,10 @@ rule validate_sv:
         complete_assembly_hap2_fa = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hap2.complete_assembly.fasta",
         complete_assembly_phase_assembly_hap1_sv_vcf = "c8_diploid_path_infer/sample_assembly/{sample}.hap1.complete_assembly.phase_assembly.sv.vcf",
         complete_assembly_phase_assembly_hap2_sv_vcf = "c8_diploid_path_infer/sample_assembly/{sample}.hap2.complete_assembly.phase_assembly.sv.vcf",
-        zmw_fq = config['lr_zmw_fastqs']
+        ont_fq = config['lr_fastqs']
     output:
-        complete_assembly_zmw_reads_hap1_bam = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hap1.complete_assembly.zmw.bam"),
-        complete_assembly_zmw_reads_hap2_bam = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hap2.complete_assembly.zmw.bam"),
+        complete_assembly_ont_reads_hap1_bam = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hap1.complete_assembly.ont.bam"),
+        complete_assembly_ont_reads_hap2_bam = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hap2.complete_assembly.ont.bam"),
         complete_assembly_hap1_cutesv_vcf = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hap1.complete_assembly.phase_assembly.cutesv.vcf"),
         complete_assembly_hap2_cutesv_vcf = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hap2.complete_assembly.phase_assembly.cutesv.vcf"),
         complete_assembly_hap1_polish_region_bed = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hap1.complete_assembly.phase_assembly.polish_region.bed"),
@@ -472,22 +468,22 @@ rule validate_sv:
         mem_mb= 60*1024,
     shell:
         """
-        minimap2 -t {threads} -ax map-pb -Y -L --eqx --cs \
-            {input.complete_assembly_hap1_fa} {input.zmw_fq} | \
+        minimap2 -t {threads} -ax map-ont -Y -L --eqx --cs \
+            {input.complete_assembly_hap1_fa} {input.ont_fq} | \
             samtools view -@ {threads} -hb - | \
-            samtools sort -@ {threads} -o {output.complete_assembly_zmw_reads_hap1_bam}
-        samtools index -@ {threads} {output.complete_assembly_zmw_reads_hap1_bam}
+            samtools sort -@ {threads} -o {output.complete_assembly_ont_reads_hap1_bam}
+        samtools index -@ {threads} {output.complete_assembly_ont_reads_hap1_bam}
         
         if [ -d {params.cutesv_tmp} ]; then
             rm -rf {params.cutesv_tmp}
         fi
         mkdir -p {params.cutesv_tmp}
-        cuteSV {output.complete_assembly_zmw_reads_hap1_bam} {input.complete_assembly_hap1_fa} {output.complete_assembly_hap1_cutesv_vcf} \
+        cuteSV {output.complete_assembly_ont_reads_hap1_bam} {input.complete_assembly_hap1_fa} {output.complete_assembly_hap1_cutesv_vcf} \
             {params.cutesv_tmp} -Ivcf {input.complete_assembly_phase_assembly_hap1_sv_vcf} \
             --max_cluster_bias_INS 100 \
             --diff_ratio_merging_INS 0.3 \
-            --max_cluster_bias_DEL 200 \
-            --diff_ratio_merging_DEL 0.5 \
+            --max_cluster_bias_DEL 100 \
+            --diff_ratio_merging_DEL 0.3 \
             -q 10 -L -1 -t {threads}
         rm -r {params.cutesv_tmp}
 
@@ -496,19 +492,19 @@ rule validate_sv:
             awk '{{if($4<=0) svlen=-1*$4;else svlen=$4;if(($2-3*svlen)<=0)print $1"\\t0\\t"$2+3*svlen;else print $1"\\t"$2-3*svlen"\\t"$2+3*svlen}}' | \
             bedtools sort -i | bedtools merge -i - > {output.complete_assembly_hap1_polish_region_bed}
         
-        minimap2 -t {threads} -ax map-pb -Y -L --eqx --cs \
-            {input.complete_assembly_hap2_fa} {input.zmw_fq} | \
+        minimap2 -t {threads} -ax map-ont -Y -L --eqx --cs \
+            {input.complete_assembly_hap2_fa} {input.ont_fq} | \
             samtools view -@ {threads} -hb - | \
-            samtools sort -@ {threads} -o {output.complete_assembly_zmw_reads_hap2_bam}
-        samtools index -@ {threads} {output.complete_assembly_zmw_reads_hap2_bam}
+            samtools sort -@ {threads} -o {output.complete_assembly_ont_reads_hap2_bam}
+        samtools index -@ {threads} {output.complete_assembly_ont_reads_hap2_bam}
 
         mkdir -p {params.cutesv_tmp}
-        cuteSV {output.complete_assembly_zmw_reads_hap2_bam} {input.complete_assembly_hap2_fa} {output.complete_assembly_hap2_cutesv_vcf} \
+        cuteSV {output.complete_assembly_ont_reads_hap2_bam} {input.complete_assembly_hap2_fa} {output.complete_assembly_hap2_cutesv_vcf} \
             {params.cutesv_tmp} -Ivcf {input.complete_assembly_phase_assembly_hap2_sv_vcf} \
             --max_cluster_bias_INS 100 \
             --diff_ratio_merging_INS 0.3 \
-            --max_cluster_bias_DEL 200 \
-            --diff_ratio_merging_DEL 0.5 \
+            --max_cluster_bias_DEL 100 \
+            --diff_ratio_merging_DEL 0.3 \
             -q 10 -L -1 -t {threads}
         rm -r {params.cutesv_tmp}
         

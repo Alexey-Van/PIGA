@@ -1,116 +1,104 @@
 rule all_phase_snv:
     input:
-        expand("c4_phase_snv/sample_vcf/{sample}/{sample}.shapeit.vcf.gz", sample = samples_list)
+        expand("c4_phase_snv/sample_vcf/{sample}/{sample}.shapeit.vcf.gz", sample=samples_list)
 
 rule generate_sample_vcf_to_phase:
-        input:
-            merge_merfin_filter_vcf = get_merge_merfin_filter_vcf_input,
-            ref = config['reference']['CHM13']
-        output:
-            unphase_sample_vcf = "c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.vcf.gz"
-        threads: 4
-        resources:
-            mem_mb = 30*1024
-        shell:
-            """
-            bcftools view --threads {threads} -s {wildcards.sample} {input.merge_merfin_filter_vcf} | \
-            bcftools view --threads {threads} -e 'GT=="0/0" | GT=="0|0"' | \
-            bcftools norm --threads {threads} -m +any -f {input.ref} | \
-            whatshap unphase - | bgzip -@ {threads} -c > {output.unphase_sample_vcf}
-            """
+    input:
+        merge_merfin_filter_vcf=get_merge_merfin_filter_vcf_input,
+        ref=config['reference']['CHM13']
+    output:
+        unphase_sample_vcf="c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.vcf.gz"
+    threads: 4
+    resources:
+        mem_mb=30*1024
+    shell:
+        """
+        bcftools view --threads {threads} -s {wildcards.sample} {input.merge_merfin_filter_vcf} | \\
+        bcftools view --threads {threads} -e 'GT==\"0/0\" | GT==\"0|0\"' | \\
+        bcftools norm --threads {threads} -m +any -f {input.ref} | \\
+        whatshap unphase - | bgzip -@ {threads} -c > {output.unphase_sample_vcf}
+        """
 
 rule consensus_vcf_whatshap_phase:
     input:
-        ref = config['reference']['CHM13'],
-        unphase_sample_vcf = "c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.vcf.gz",
-        zmw_bam = get_zmw_bam_input
+        unphase_sample_vcf="c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.vcf.gz",
+        pmd_phased_vcf="c2_call_lr_snv/sample_gvcf/{sample}/{sample}.pmd.phased.vcf.gz"
     output:
-        phase_sample_vcf = "c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.whatshap.vcf.gz"
-    threads: 4
+        phase_sample_vcf="c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.whatshap.vcf.gz"
+    threads: 1
     resources:
-        mem_mb = 30*1024
+        mem_mb=30*1024
     shell:
         """
-        whatshap phase --ignore-read-groups \
-            --reference {input.ref} \
-            --output {output.phase_sample_vcf} \
-            {input.unphase_sample_vcf} \
-            {input.zmw_bam}
-
-        tabix {output.phase_sample_vcf}
+        python3 scripts/infer_diploid_path/pmd_phase_transfer.py \\
+            --input-vcf {input.unphase_sample_vcf} \\
+            --phased-vcf {input.pmd_phased_vcf} \\
+            --sample {wildcards.sample} \\
+            --output-vcf {output.phase_sample_vcf}
+        tabix -f {output.phase_sample_vcf}
         """
 
 rule merge_consensus_whatshap_vcf:
     input:
-        phase_sample_vcfs = expand("c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.whatshap.vcf.gz", sample = samples_list),
-        ref = config['reference']['CHM13']
+        phase_sample_vcfs=expand("c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.whatshap.vcf.gz", sample=samples_list),
+        ref=config['reference']['CHM13']
     output:
-        merge_whatshap_vcf = f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.vcf.gz",
-        merge_whatshap_filter_vcf = f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.unphase_singleton_filter.vcf.gz"
+        merge_whatshap_vcf=f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.vcf.gz",
+        merge_whatshap_filter_vcf=f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.unphase_singleton_filter.vcf.gz"
     threads: 4
     resources:
-        mem_mb = 30*1024
+        mem_mb=30*1024
     shell:
         """
         bcftools merge --threads {threads} -0 -m any {input.phase_sample_vcfs} -O z -o {output.merge_whatshap_vcf}
-        
-        bcftools norm --threads {threads} -m -any -f {input.ref} {output.merge_whatshap_vcf} | \
+        bcftools norm --threads {threads} -m -any -f {input.ref} {output.merge_whatshap_vcf} | \\
         bcftools view --threads {threads} -v snps -e "N_PASS(GT=='0|1' || GT=='1|0')==0 && (AN-AC<=1 || AC<=1)" -o {output.merge_whatshap_filter_vcf}
         tabix -f {output.merge_whatshap_filter_vcf}
         """
 
-# This step requires at least 20 samples in the input vcf file. Or shapeit4 will not run successfully.
 rule chr_consensus_vcf_shapeit:
     input:
-        merge_whatshap_filter_vcf = f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.unphase_singleton_filter.vcf.gz"
+        merge_whatshap_filter_vcf=f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.unphase_singleton_filter.vcf.gz"
     output:
-        consensus_whatshap_shapeit_vcf = f"c4_phase_snv/chr_vcf/{{chr}}/{config['prefix']}.consensus.whatshap.shapeit.{{chr}}.vcf.gz"
+        consensus_whatshap_shapeit_vcf=f"c4_phase_snv/chr_vcf/{{chr}}/{config['prefix']}.consensus.whatshap.shapeit.{{chr}}.vcf.gz"
     threads: 16
     resources:
-        mem_mb = 120*1024
+        mem_mb=120*1024
     shell:
         """
         sample_number=$(bcftools query -l {input.merge_whatshap_filter_vcf} | wc -l)
-        if [ $sample_number -lt 20 ];
-        then
-            bcftools view {input.merge_whatshap_filter_vcf} {wildcards.chr} | \
-            awk -v OFS='\\t' -v FS='\\t' '{{if(substr($1,1,1)!="#") {{for(i=10;i<=NF;i++) gsub("/", "|", $i)}};print $0 }}' | bgzip -c > {output.consensus_whatshap_shapeit_vcf}
+        if [ $sample_number -lt 20 ]; then
+            bcftools view {input.merge_whatshap_filter_vcf} {wildcards.chr} | awk -v OFS='\\t' -v FS='\\t' '{{if(substr($1,1,1)!="#") {{for(i=10;i<=NF;i++) gsub("/", "|", $i)}};print $0 }}' | bgzip -c > {output.consensus_whatshap_shapeit_vcf}
         else
-            shapeit4 --input {input.merge_whatshap_filter_vcf} \
-                --region {wildcards.chr} \
-                --pbwt-depth 8 -T {threads} --sequencing --use-PS 0.0001 \
-                --out {output.consensus_whatshap_shapeit_vcf}
+            shapeit4 --input {input.merge_whatshap_filter_vcf} --region {wildcards.chr} --pbwt-depth 8 -T {threads} --sequencing --use-PS 0.0001 --out {output.consensus_whatshap_shapeit_vcf}
         fi
         tabix -f {output.consensus_whatshap_shapeit_vcf}
         """
 
 rule concat_consensus_vcf_shapeit:
     input:
-        consensus_whatshap_shapeit_vcfs = expand("c4_phase_snv/chr_vcf/{chr}/{prefix}.consensus.whatshap.shapeit.{chr}.vcf.gz", chr = [f"chr{i}" for i in range(1, 23)] + ["chrX"], prefix = config['prefix'])
+        consensus_whatshap_shapeit_vcfs=expand("c4_phase_snv/chr_vcf/{chr}/{prefix}.consensus.whatshap.shapeit.{chr}.vcf.gz", chr=[f"chr{i}" for i in range(1, 23)]+["chrX"], prefix=config['prefix'])
     output:
-        concat_consensus_whatshap_shapeit_vcf = f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.shapeit.vcf.gz"
+        concat_consensus_whatshap_shapeit_vcf=f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.shapeit.vcf.gz"
     threads: 8
     resources:
-        mem_mb = 60*1024
+        mem_mb=60*1024
     shell:
-        """        
-        bcftools concat {input.consensus_whatshap_shapeit_vcfs} \
-            --threads {threads} -Oz -o {output.concat_consensus_whatshap_shapeit_vcf}
-        tabix {output.concat_consensus_whatshap_shapeit_vcf}
         """
-
+        bcftools concat {input.consensus_whatshap_shapeit_vcfs} --threads {threads} -Oz -o {output.concat_consensus_whatshap_shapeit_vcf}
+        tabix -f {output.concat_consensus_whatshap_shapeit_vcf}
+        """
 
 rule prepare_sample_consensus_vcf:
     input:
-        concat_consensus_whatshap_shapeit_vcf = f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.shapeit.vcf.gz"
+        concat_consensus_whatshap_shapeit_vcf=f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.shapeit.vcf.gz"
     output:
-        sample_vcf = "c4_phase_snv/sample_vcf/{sample}/{sample}.shapeit.vcf.gz"
+        sample_vcf="c4_phase_snv/sample_vcf/{sample}/{sample}.shapeit.vcf.gz"
     threads: 4
     resources:
-        mem_mb = 30*1024
+        mem_mb=30*1024
     shell:
         """
-        bcftools view --threads {threads} -s {wildcards.sample} {input.concat_consensus_whatshap_shapeit_vcf} | \
-            bcftools view --threads {threads} -i "GT!='RR'" -o {output.sample_vcf}
+        bcftools view --threads {threads} -s {wildcards.sample} {input.concat_consensus_whatshap_shapeit_vcf} | bcftools view --threads {threads} -i "GT!='RR'" -o {output.sample_vcf}
         tabix -f {output.sample_vcf}
         """

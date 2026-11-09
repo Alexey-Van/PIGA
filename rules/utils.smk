@@ -1,11 +1,8 @@
 def get_sr_input_fastqs(wildcards):
     return config["sr_fastqs"]
 
-def get_zmw_input_fastqs(wildcards):
-    return config["lr_zmw_fastqs"]
-
-def get_hifi_input_fastqs(wildcards):
-    return config["lr_hifi_fastqs"]
+def get_lr_input_fastqs(wildcards):
+    return config["lr_fastqs"]
 
 def get_sex(wildcards):
     sex = config['sex'][wildcards.sample]
@@ -45,11 +42,11 @@ def get_merge_phased_vcf_input(wildcards):
     else:
         return f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.shapeit.vcf.gz"
 
-def get_zmw_bam_input(wildcards):
-    if "zmw_bam" in config:
-        return config["zmw_bam"]
+def get_lr_bam_input(wildcards):
+    if "lr_bam" in config:
+        return config["lr_bam"]
     else:
-        return "c2_call_lr_snv/sample_bam/{sample}/{sample}.zmw.srt.bam"
+        return "c2_call_lr_snv/sample_bam/{sample}/{sample}.pmd.haplotagged.bam"
 
 def get_consensus_fasta_input(wildcards):
     if "consensus_fasta" in config:
