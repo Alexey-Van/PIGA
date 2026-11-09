@@ -30,7 +30,7 @@ rule consensus_vcf_whatshap_phase:
         mem_mb=30*1024
     shell:
         """
-        python3 scripts/infer_diploid_path/pmd_phase_transfer.py \\
+        python3 {PIGA_DIR}/scripts/infer_diploid_path/pmd_phase_transfer.py \\
             --input-vcf {input.unphase_sample_vcf} \\
             --phased-vcf {input.pmd_phased_vcf} \\
             --sample {wildcards.sample} \\

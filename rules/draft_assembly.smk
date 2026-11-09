@@ -97,7 +97,7 @@ rule personal_ref_dv:
         personal_dv_vcf = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.deepvariant.vcf.gz",
         personal_dv_filter_vcf = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.deepvariant.filter.vcf.gz"
     singularity:
-        "scripts/call_lr_snv/deepvariant.sif"
+        f"{PIGA_DIR}/scripts/call_lr_snv/deepvariant.sif"
     threads: 16
     resources:
         mem_mb = 64*1024
@@ -261,7 +261,7 @@ rule correct_switch_error:
             {input.sample_assembly_merge_phase_vcf} \
             {input.sample_assembly_shapeit_vcf} | \
             bcftools view -i "GT[0]='RA'" | \
-            python3 scripts/draft_assembly/switch_correct.py - {params.sample_switch_correct_unzip_vcf} {output.sample_switch_correct_bed}
+            python3 {PIGA_DIR}/scripts/draft_assembly/switch_correct.py - {params.sample_switch_correct_unzip_vcf} {output.sample_switch_correct_bed}
 
         bgzip -f {params.sample_switch_correct_unzip_vcf}
         tabix -f {output.sample_switch_correct_vcf}
@@ -300,12 +300,14 @@ rule phase_assembly:
     params:
         medaka_model = config['medaka_model'],
         assembly_dir = "c6_draft_assembly/sample_assembly/{sample}/assembly"
+    singularity:
+        f"{PIGA_DIR}/scripts/draft_assembly/assembly.sif"
     threads: 16
     resources:
         mem_mb = 150*1024
     shell:
         """
-        python3 scripts/draft_assembly/ont_hifiasm_assembly.py \
+        python3 {PIGA_DIR}/scripts/draft_assembly/ont_hifiasm_assembly.py \
             --tagged-bam {input.tagged_ont_bam} \
             --medaka-model {params.medaka_model} \
             --output-dir {params.assembly_dir} \

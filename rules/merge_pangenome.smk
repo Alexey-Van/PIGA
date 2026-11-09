@@ -53,7 +53,7 @@ rule node_ids:
     shell:
         """
         index=$(awk -v id={wildcards.id} '{{if($1==id) print $2}}' {input.node_sum_counts})
-        python3 scripts/simplify_pangenome/gfa_ids.py {input.gfaffix_gfa} {output.ids_gfa} $index
+        python3 {PIGA_DIR}/scripts/simplify_pangenome/gfa_ids.py {input.gfaffix_gfa} {output.ids_gfa} $index
         grep -v snv {output.ids_gfa} > {output.ids_assembly_gfa} || true
         grep snv {output.ids_gfa} > {output.ids_variant_path} || true
         """
@@ -82,7 +82,7 @@ rule chr_merge:
             echo c7_graph_construction/subgraph/subgraph_$id/{params.prefix}_subgraph_$id.seqwish.smoothxg.gfaffix.ml_filter.variant_project.gfaffix.ids.assembly.gfa
         done > {output.gfa_list}
         
-        python3 scripts/simplify_pangenome/gfa_merge.py {output.gfa_list} {output.merged_gfa} \
+        python3 {PIGA_DIR}/scripts/simplify_pangenome/gfa_merge.py {output.gfa_list} {output.merged_gfa} \
         c7_graph_construction/graph_merge/tmp.merge.{wildcards.chr} CHM13 {threads}
 
         awk -v chr={wildcards.chr} '{{if($1==chr) print$2}}' {input.chr_subgraph_list} | while read id

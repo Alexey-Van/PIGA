@@ -40,7 +40,7 @@ rule lr_ont_dv:
     params:
         PMD_DIR = "c2_call_lr_snv/sample_gvcf/{sample}/pepper_margin_deepvariant"
     singularity:
-        "file://scripts/call_lr_snv/pepper_deepvariant.sif"
+        f"{PIGA_DIR}/scripts/call_lr_snv/pepper_deepvariant.sif"
     threads: 8
     resources:
         mem_mb = 60*1024
@@ -160,7 +160,7 @@ rule lr_whatshap_genotype:
         bcftools view -s {wildcards.sample} {output.whatshap_tmp_snp_vcf} -Oz -o {output.whatshap_snp_vcf}
         tabix -f {output.whatshap_snp_vcf}
 
-        bash scripts/call_lr_snv/whatshap_vcf_reform.sh {output.whatshap_snp_vcf} {params.sex} | bgzip -c > {output.whatshap_reform_snp_vcf}
+        bash {PIGA_DIR}/scripts/call_lr_snv/whatshap_vcf_reform.sh {output.whatshap_snp_vcf} {params.sex} | bgzip -c > {output.whatshap_reform_snp_vcf}
         tabix -f {output.whatshap_reform_snp_vcf}
         """
 
@@ -198,7 +198,7 @@ rule lr_beagle_split_vcf:
         mkdir -p c2_call_lr_snv/lr_beagle/{wildcards.chrom}
 
         bcftools view {input.whatshap_filter_snp_vcf} {wildcards.chrom} | \
-            java -jar scripts/call_lr_snv/splitvcf.jar {wildcards.chrom} 50000 3000 {params.prefix}
+            java -jar {PIGA_DIR}/scripts/call_lr_snv/splitvcf.jar {wildcards.chrom} 50000 3000 {params.prefix}
         
         """
 
@@ -270,7 +270,7 @@ rule chr_num_beagle_vcf_merge:
         else:
           shell(f"""
             java "-Xmx{resources.max_mem_gb}G" \
-                -jar scripts/call_lr_snv/mergevcf.jar \
+                -jar {PIGA_DIR}/scripts/call_lr_snv/mergevcf.jar \
                 chr{wildcards.chrom} \
                 {input.chr_num_beagle_vcfs} | \
                 bgzip -c > {output.chr_beagle_vcf}

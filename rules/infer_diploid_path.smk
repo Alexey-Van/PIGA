@@ -78,8 +78,8 @@ rule form_sample_merge_chr_gfa:
         grep "^S\\|^L\\|{wildcards.sample}\\t" {input.gfa} >> {output.sample_merge_gfa} || true
         grep "{wildcards.sample}.snv\\t" {input.variant_path} >> {output.sample_merge_gfa} || true
         grep -P "{wildcards.chr}-|{wildcards.chr}\\t" {input.sample_haplotype_gfa} >> {output.sample_merge_gfa} || true
-        python3 scripts/infer_diploid_path/gfa_remove_ac0_reverse.py {output.sample_merge_gfa} {output.rmac0_gfa}
-        python3 scripts/infer_diploid_path/gfa_fa.py {output.rmac0_gfa} recombination_ref 1 {output.ref_fa}
+        python3 {PIGA_DIR}/scripts/infer_diploid_path/gfa_remove_ac0_reverse.py {output.sample_merge_gfa} {output.rmac0_gfa}
+        python3 {PIGA_DIR}/scripts/infer_diploid_path/gfa_fa.py {output.rmac0_gfa} recombination_ref 1 {output.ref_fa}
         """
 
 rule sample_chr_gfa_deconstruct:
@@ -100,7 +100,7 @@ rule sample_chr_gfa_deconstruct:
         vg mod -u {input.rmac0_gfa} | vg view - > {output.unchop_gfa}
         gfaffix {output.unchop_gfa} > {output.unchop_gfaffix_gfa} 
         vg deconstruct -t {threads} -P recombination_ref -a -e -C {output.unchop_gfaffix_gfa} > {output.vcf}
-        python3 scripts/infer_diploid_path/pangenie_norm.py {output.vcf} {wildcards.sample},{wildcards.sample}.snv,recombination {wildcards.sample} {params.sex} | \
+        python3 {PIGA_DIR}/scripts/infer_diploid_path/pangenie_norm.py {output.vcf} {wildcards.sample},{wildcards.sample}.snv,recombination {wildcards.sample} {params.sex} | \
         awk -v OFS='\\t' '{{if($1=="#CHROM" && $12=="recombination") {{for(i=12;i<=19;i++) $i="recombination-"i-11}} print $0}}' | bcftools view -o {output.norm_vcf}
         tabix -f {output.norm_vcf}
         """
@@ -185,12 +185,12 @@ rule pangenie_refine:
         mem_mb= 30*1024
     shell:
         """
-        python3 scripts/infer_diploid_path/pangenie_phase_fix.py {input.phasing_vcf} {params.phasing_refine_vcf}
+        python3 {PIGA_DIR}/scripts/infer_diploid_path/pangenie_phase_fix.py {input.phasing_vcf} {params.phasing_refine_vcf}
         bgzip -f -@ {threads} {params.phasing_refine_vcf}
         tabix -f {output.phasing_refine_vcf_gz}
 
         bcftools merge -m all --force-samples {input.genotype_vcf} {input.vcfbub_vcf} | \
-            python3 scripts/infer_diploid_path/graph_genotype_refine.py - {output.genotype_refine_vcf} sample {wildcards.sample}.snv {wildcards.sample}
+            python3 {PIGA_DIR}/scripts/infer_diploid_path/graph_genotype_refine.py - {output.genotype_refine_vcf} sample {wildcards.sample}.snv {wildcards.sample}
         bcftools view -a {output.genotype_refine_vcf} | bcftools view -i "ALT!='.'" -o {output.genotype_final_vcf}
         tabix -f {output.genotype_final_vcf}
         """  
@@ -215,20 +215,20 @@ rule genotype_phase:
     shell:
         """
         bcftools merge -m all --force-samples {input.genotype_final_vcf} {input.phasing_refine_vcf} | \
-            python3 scripts/infer_diploid_path/genotype_phase.py - {params.pangenie_phase_vcf}
+            python3 {PIGA_DIR}/scripts/infer_diploid_path/genotype_phase.py - {params.pangenie_phase_vcf}
         bgzip -@ {threads} -f {params.pangenie_phase_vcf}
         tabix -f {output.pangenie_phase_vcf_gz}
         
         bcftools merge -m all --force-samples {input.genotype_final_vcf} {input.vcfbub_vcf} | \
             bcftools view -s sample,{wildcards.sample} | \
-            python3 scripts/infer_diploid_path/genotype_phase.py - {params.assembly_phase_vcf}
+            python3 {PIGA_DIR}/scripts/infer_diploid_path/genotype_phase.py - {params.assembly_phase_vcf}
         bgzip -@ {threads} -f {params.assembly_phase_vcf}
         tabix -f {output.assembly_phase_vcf_gz}
 
         
         bcftools merge -m all --force-samples {input.genotype_final_vcf} {input.vcfbub_vcf} | \
             bcftools view -s sample,{wildcards.sample}.snv | \
-            python3 scripts/infer_diploid_path/genotype_phase.py - {params.snv_phase_vcf}
+            python3 {PIGA_DIR}/scripts/infer_diploid_path/genotype_phase.py - {params.snv_phase_vcf}
         bgzip -@ {threads} -f {params.snv_phase_vcf}
         tabix -f {output.snv_phase_vcf_gz}
         """  
@@ -282,7 +282,7 @@ rule margin_phase:
         mem_mb= 60*1024
     params:
         prefix = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.margin",
-        phase_json = "scripts/infer_diploid_path/margin.phase_sv.json"
+        phase_json = "{PIGA_DIR}/scripts/infer_diploid_path/margin.phase_sv.json"
     shell:
         """
         margin phase \
@@ -321,7 +321,7 @@ rule integrate_phase:
             {input.pangenie_phase_vcf} \
             {input.whatshap_vcf} \
             {input.concat_margin_vcf} | \
-            python3 scripts/infer_diploid_path/graph_phase_intergrate.py - {output.integrate_phase_vcf} sample 2:sample,3:sample,4:sample,5:sample,6:sample > {output.integrate_phase_log}
+            python3 {PIGA_DIR}/scripts/infer_diploid_path/graph_phase_intergrate.py - {output.integrate_phase_vcf} sample 2:sample,3:sample,4:sample,5:sample,6:sample > {output.integrate_phase_log}
         
         bcftools view -a {output.integrate_phase_vcf} | bcftools view -i "ALT!='.'" -o {output.integrate_phase_filter_vcf}
         tabix -f {output.integrate_phase_filter_vcf}

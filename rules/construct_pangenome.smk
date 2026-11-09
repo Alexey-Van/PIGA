@@ -166,7 +166,7 @@ rule minigraph_clip:
     shell:
         """
         vg snarls {input.minigraph_gfa} | vg view -R - > {output.snarls}
-        python3 scripts/construct_pangenome/gfa_border_node_select.py {input.minigraph_gfa} {output.snarls} {params.tmp_dir} {output.node_clip_gfa} {output.node_edge_clip_gfa} {output.subgraph_info}
+        python3 {PIGA_DIR}/scripts/construct_pangenome/gfa_border_node_select.py {input.minigraph_gfa} {output.snarls} {params.tmp_dir} {output.node_clip_gfa} {output.node_edge_clip_gfa} {output.subgraph_info}
         vg convert -g {output.node_clip_gfa} -f -Q CHM13.chr | awk '{{if(substr($0,1,1)=="S" && $6!="SR:i:0")print$0"\\tSN:Z:Other\\tSO:i:0\\tSR:i:1";else print$0}}' | \
           awk -v OFS='\\t' '{{if(substr($0,1,1)=="S")print$1,"s"$2,$3,$4,$5,$6;else {{if(substr($0,1,1)=="L")print$1,"s"$2,$3,"s"$4,$5,$6;else print$0}} }}' > {output.node_clip_rgfa}
         grep ^S {output.node_clip_rgfa} | awk '{{print $2"\\t"length($3)}}' > {output.node_len}
@@ -241,7 +241,7 @@ checkpoint minigraph_aln_partition:
         cat {input.gafs} > {output.gaf}
         gaf2paf -l {input.node_len} {output.gaf} > {output.paf}
         vg chunk -C -x {input.node_edge_clip_gfa} --prefix {params.prefix} -O gfa
-        python3 scripts/construct_pangenome/subgraph_paf_fa.py {params.prefix} {output.paf} {output.gaf} {params.subgraph_dir}
+        python3 {PIGA_DIR}/scripts/construct_pangenome/subgraph_paf_fa.py {params.prefix} {output.paf} {output.gaf} {params.subgraph_dir}
         ls {params.prefix}_*.gfa | awk '{{split($1,a,"_");split(a[length(a)],b,".");print b[1]}}' > {output.subgraph_id_list}
         > {output.subgraph_record}
         """
@@ -322,7 +322,7 @@ rule smoothxg:
         """
         mkdir -p {params.smoothxg_dir}
         sample_number=$(grep ">" {input.fa} | awk '{{split($1,a,".");if(length(a)==2) print a[1];else print a[1]"."a[2] }}' | sort -u | wc -l)
-        python3 scripts/simplify_pangenome/gfa_ref_component.py {input.seqwish_gfa} {output.seqwish_component_gfa} CHM13
+        python3 {PIGA_DIR}/scripts/simplify_pangenome/gfa_ref_component.py {input.seqwish_gfa} {output.seqwish_component_gfa} CHM13
         if ! smoothxg -t {threads} -g {output.seqwish_component_gfa} --base {params.smoothxg_dir} -r $sample_number --chop-to 100 -I 0.98 -R 0 -j 0 -e 0 -l 1400,2200 -p 1,4,6,2,26,1 -O 0.001 -Y $[100*$sample_number] -d 0 -D 0 -V -c 200M -W 1 -o {output.smoothxg_raw_gfa}
         then
             smoothxg -t {threads} -g {output.seqwish_component_gfa} --base {params.smoothxg_dir} -r $sample_number --chop-to 100 -I 0.98 -R 0 -j 0 -e 0 -l 2200 -p 1,4,6,2,26,1 -O 0.001 -Y $[100*$sample_number] -d 0 -D 0 -V -c 200M -W 1 -o {output.smoothxg_raw_gfa}

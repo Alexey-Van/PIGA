@@ -2,6 +2,8 @@ shell.prefix = ['set -e']
 
 import os
 
+PIGA_DIR = os.path.dirname(os.path.abspath(workflow.snakefile))
+
 
 samples_list, sex_list, sample_sex_dict = [], [], {}
 with open(config['samples']) as f:

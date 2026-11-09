@@ -46,7 +46,7 @@ dependencies:
   - graphaligner
   - racon
   - medaka
-  - hifiasm>=0.21.0
+  - hifiasm
   - cutadapt
   - sniffles
   - jasminesv
