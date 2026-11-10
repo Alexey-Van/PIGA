@@ -282,7 +282,7 @@ rule margin_phase:
         mem_mb= 60*1024
     params:
         prefix = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.margin",
-        phase_json = "{PIGA_DIR}/scripts/infer_diploid_path/margin.phase_sv.json"
+        phase_json = f"{PIGA_DIR}/scripts/infer_diploid_path/margin.phase_sv.json"
     shell:
         """
         margin phase \
