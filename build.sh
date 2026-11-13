@@ -120,5 +120,6 @@ mv deepvariant*.sif ${calllrDir}/deepvariant.sif
 
 # Download PEPPER-Margin-DeepVariant for ONT variant calling.
 singularity pull ${calllrDir}/pepper_deepvariant.sif docker://kishwars/pepper_deepvariant:r0.8
+singularity pull ${calllrDir}/pepper_deepvariant_gpu.sif docker://kishwars/pepper_deepvariant:r0.8-gpu
 cd ${mainDir}
 rm -rf ${buildDir}

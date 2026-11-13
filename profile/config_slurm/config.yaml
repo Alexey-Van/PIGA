@@ -1,12 +1,13 @@
 # Singularity
 use-singularity: true
-singularity-args: "-B /$(pwd | cut -d'/' -f2):/$(pwd | cut -d'/' -f2)"
+singularity-args: "--nv -B /$(pwd | cut -d'/' -f2):/$(pwd | cut -d'/' -f2)"
 
 # Slurm Settings for Snakemake V7
-cluster: "sbatch --qos=Normal --requeue --parsable --cpus-per-task={threads} --mem={resources.mem_mb} --output=logs_slurm/snakejob.{rule}.%j.out"
+cluster: "sbatch --qos=Normal --requeue --parsable --cpus-per-task={threads} --mem={resources.mem_mb} --time={resources.time} {resources.gres} --output=logs_slurm/snakejob.{rule}.%j.out"
 cluster-cancel: "scancel"
 local-cores: 4
 
 default-resources:
   - mem_mb=10000
-  - time="600:00:00"
+  - time="7-00:00:00"
+  - gres=""
