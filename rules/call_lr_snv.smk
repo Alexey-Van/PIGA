@@ -47,23 +47,20 @@ rule lr_ont_dv:
         gres = "--gres=gpu:1"
     shell:
         """
-        rm -rf {params.PMD_DIR}
         mkdir -p {params.PMD_DIR}
-        # Refresh the BAM index because the previous index may be stale.
-        samtools index -@ {threads} -f {input.ont_bam}
+        phased_vcf="{params.PMD_DIR}/{wildcards.sample}.phased.vcf.gz"
+        phased_bam="{params.PMD_DIR}/{wildcards.sample}.haplotagged.bam"
+        # Rebuild a stale BAM index. The cluster's samtools version does not support index -f.
+        rm -f {input.ont_bam}.bai {input.ont_bam}.csi
+        samtools index -@ {threads} {input.ont_bam}
         run_pepper_margin_deepvariant call_variant \
             --bam {input.ont_bam} --fasta {input.ref} \
             --output_dir {params.PMD_DIR} --output_prefix {wildcards.sample} \
             --threads {threads} --sample_name {wildcards.sample} \
             --ont_r10_q20 --gvcf --phased_output
-        final_vcf=$(find {params.PMD_DIR} -type f -name '*.vcf.gz' -not -name '*.g.vcf.gz' -not -path '*/intermediate_files/*' -print -quit)
-        final_gvcf=$(find {params.PMD_DIR} -type f -name '*.g.vcf.gz' -not -path '*/intermediate_files/*' -print -quit)
-        phased_vcf=$(find {params.PMD_DIR} -type f -name '{wildcards.sample}.phased.vcf' -not -path '*/intermediate_files/*' -print -quit)
-        phased_bam=$(find {params.PMD_DIR} -type f -name '{wildcards.sample}.haplotagged.bam' -not -path '*/intermediate_files/*' -print -quit)
-        if [ -z "$final_vcf" ]; then echo "PEPPER final VCF not found under {params.PMD_DIR}" >&2; exit 1; fi
-        if [ -z "$final_gvcf" ]; then echo "PEPPER gVCF not found under {params.PMD_DIR}" >&2; exit 1; fi
-        if [ -z "$phased_vcf" ]; then echo "PEPPER phased VCF not found under {params.PMD_DIR}" >&2; exit 1; fi
-        if [ -z "$phased_bam" ]; then echo "PEPPER haplotagged BAM not found under {params.PMD_DIR}" >&2; exit 1; fi
+        fi
+        final_vcf="{params.PMD_DIR}/{wildcards.sample}.vcf.gz"
+        final_gvcf="{params.PMD_DIR}/{wildcards.sample}.g.vcf.gz"
         cp "$final_vcf" {output.dv_vcf}
         cp "$final_gvcf" {output.dv_gvcf}
         bcftools view -Oz -o {output.pmd_phased_vcf} "$phased_vcf"
