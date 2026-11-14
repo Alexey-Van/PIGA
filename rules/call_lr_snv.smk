@@ -50,6 +50,11 @@ rule lr_ont_dv:
         mkdir -p {params.PMD_DIR}
         phased_vcf="{params.PMD_DIR}/{wildcards.sample}.phased.vcf.gz"
         phased_bam="{params.PMD_DIR}/{wildcards.sample}.haplotagged.bam"
+        if [ ! -s "$phased_vcf" ] || [ ! -s "$phased_bam" ] || \\
+           [ ! -s "{params.PMD_DIR}/{wildcards.sample}.vcf.gz" ] || \\
+           [ ! -s "{params.PMD_DIR}/{wildcards.sample}.g.vcf.gz" ]; then
+            rm -rf {params.PMD_DIR}
+            mkdir -p {params.PMD_DIR}
         # Rebuild a stale BAM index. The cluster's samtools version does not support index -f.
         rm -f {input.ont_bam}.bai {input.ont_bam}.csi
         samtools index -@ {threads} {input.ont_bam}
@@ -61,6 +66,10 @@ rule lr_ont_dv:
         fi
         final_vcf="{params.PMD_DIR}/{wildcards.sample}.vcf.gz"
         final_gvcf="{params.PMD_DIR}/{wildcards.sample}.g.vcf.gz"
+        if [ ! -s "$final_vcf" ]; then echo "PEPPER final VCF not found: $final_vcf" >&2; exit 1; fi
+        if [ ! -s "$final_gvcf" ]; then echo "PEPPER gVCF not found: $final_gvcf" >&2; exit 1; fi
+        if [ ! -s "$phased_vcf" ]; then echo "PEPPER phased VCF not found: $phased_vcf" >&2; exit 1; fi
+        if [ ! -s "$phased_bam" ]; then echo "PEPPER haplotagged BAM not found: $phased_bam" >&2; exit 1; fi
         cp "$final_vcf" {output.dv_vcf}
         cp "$final_gvcf" {output.dv_gvcf}
         bcftools view -Oz -o {output.pmd_phased_vcf} "$phased_vcf"
