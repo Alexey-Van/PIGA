@@ -27,8 +27,7 @@ rule personal_pangenome:
         pangenome_gbz = f"c5_personal_ref/external_pangenome/external.gbz",
         pangenome_hapl = f"c5_personal_ref/external_pangenome/external.hapl",
         sr_fq1 = config['sr_fastqs'][0],
-        sr_fq2 = config['sr_fastqs'][1],
-        lr_fastqs = config['lr_fastqs']
+        sr_fq2 = config['sr_fastqs'][1]
     output:
         kmer_fq_list = "c5_personal_ref/sample_reference/{sample}/{sample}.fq.list",
         sample_kff = "c5_personal_ref/sample_reference/{sample}/{sample}.kff",

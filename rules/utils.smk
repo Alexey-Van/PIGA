@@ -68,16 +68,18 @@ def get_sample_phased_vcf_input(wildcards):
 
 def get_sample_meryl_input(wildcards):
     if "sample_meryl" in config:
+        if config.get("sample_meryl_source") != "short_reads":
+            raise ValueError(
+                "sample_meryl must be built from short reads only; "
+                "set sample_meryl_source: short_reads to confirm its provenance"
+            )
         return config["sample_meryl"]
     else:
         return "c3_merge_snv/sample_meryl/{sample}/{sample}.meryl/merylIndex"
 
 def concat_final_phase_vcf_sex_specific_chrlist(wildcards):
-    sex = config['sex'][wildcards.sample]
     chr_list = [f'chr{i}' for i in range(1, 23)]
-    if sex == 'female':
-        return chr_list + ['chrX']
-    return chr_list
+    return chr_list + ['chrX']
 
 
 def get_external_assembly_fa(wildcards):

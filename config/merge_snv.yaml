@@ -20,4 +20,9 @@ prefix: test
 # #if no "lr_vcf" key, default input will be c2_call_lr_snv/lr_beagle/concat/{config['prefix']}.deepvariant.whatshap.beagle.vcf.gz
 # lr_vcf:
 #     "YOUR PATH"
+#
+# #Optional external Meryl database; it must be built from short reads only.
+# sample_meryl:
+#     "PATH/{sample}/{sample}.meryl/merylIndex"
+# sample_meryl_source: short_reads
 

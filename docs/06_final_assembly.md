@@ -81,6 +81,8 @@ If omitted, the workflow will use the default:
 If omitted, the workflow will use the default:
 `c3_merge_snv/sample_meryl/{sample}/{sample}.meryl/merylIndex`
 
+External sample k-mer databases must be built from short reads only; do not use ONT reads for k-mer databases. When supplying an external database, also set sample_meryl_source: short_reads in the config. The workflow rejects an override without this provenance declaration.
+
 ### Usage
 
 ```bash

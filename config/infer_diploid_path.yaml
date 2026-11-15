@@ -32,4 +32,6 @@ prefix: test
 #
 # #if no "sample_meryl" key, default input will be "c3_merge_snv/sample_meryl/{sample}/{sample}.meryl/merylIndex"
 # sample_meryl:
+# For an external database, confirm that it was built from short reads only.
+# sample_meryl_source: short_reads
 

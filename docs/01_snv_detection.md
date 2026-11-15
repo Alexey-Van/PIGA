@@ -125,6 +125,7 @@ The configuration file should contain:
 Use `{sample}` as a wildcard; it will be automatically replaced with sample names from the `samples` file.
 
 Only Illumina reads are used to build the Merfin k-mer database.
+If you provide an external sample_meryl database, build it from short reads only and set sample_meryl_source: short_reads in the config.
 
 `reference`:
 

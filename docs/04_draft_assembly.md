@@ -8,13 +8,13 @@ This pipeline performs reference-guided draft diploid genome assembly.
 
 ### Description
 
-- Align ONT reads with minimap2 and haplotag them with WhatsHap.
-- Assemble reads from each haplotype with hifiasm in ONT mode.
-- Polish each haplotype assembly with Medaka.
-- Detect structural errors in contigs with Sniffles2 and Jasmine.
-- Polish contigs using short reads with Freebayes.
-- Filter contig regions with switch errors by comparing assembly haplotype to SNV haplotype.
-- Mask the adaptor sequences in contigs.
+- Map Illumina reads to each sample's personal reference and call short-read variants.
+- Combine those calls with lifted, population-phased variants, phase with ONT reads, and correct switch errors against the population phasing.
+- Haplotag ONT reads with the corrected phased VCF and split the original FASTQ reads by haplotype, retaining their basecaller metadata.
+- Assemble each haplotype with hifiasm in ONT mode and polish it with Medaka.
+- For male samples, assign otherwise untagged chrX non-PAR reads to the X haplotype and chrY reads to the Y haplotype; PAR reads remain assigned only when supported by haplotags.
+
+This replaces the original PacBio ZMW/subread interval assembly and Arrow polishing with ONT read phasing, hifiasm, and Medaka. Short reads still contribute to variant calling, switch-error correction, and conservative homozygous-error polishing. The final diploid-path stage uses ONT reads for structural-variant validation and the Illumina-only k-mer database for Merqury clipping.
 
 ### Requirement
 
@@ -27,12 +27,10 @@ This pipeline performs reference-guided draft diploid genome assembly.
 - [Seqkit](https://github.com/shenwei356/seqkit)
 - [hifiasm](https://github.com/chhylp123/hifiasm)
 - [Medaka](https://github.com/nanoporetech/medaka)
-- [cutadapt](https://github.com/marcelm/cutadapt/)
-- [phasebook](https://github.com/phasebook/phasebook)
-- [Sniffles2](https://github.com/fritzsedlazeck/Sniffles)
-- [Jasmine](https://github.com/mkirsche/Jasmine)
 - [Freebayes](https://github.com/freebayes/freebayes)
-- [Bedtools](https://github.com/arq5x/bedtools2)
+- [DeepVariant](https://github.com/google/deepvariant)
+- pysam
+- [CrossMap](https://github.com/liguowang/CrossMap)
 
 ### Configuration (`draft_assembly.yaml`)
 

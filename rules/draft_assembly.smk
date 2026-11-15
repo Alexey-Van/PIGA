@@ -154,24 +154,46 @@ rule merge_variants:
 rule personal_ref_ont_minimap2:
     input:
         consensus_fasta = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.fasta",
-        pmd_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.pmd.haplotagged.bam"
+        lr_fastqs = config['lr_fastqs']
     output:
-        ont_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.srt.bam"
+        ont_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.unphased.srt.bam",
+        ont_ref_bai = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.unphased.srt.bam.bai"
     threads: 8
     resources:
         mem_mb = 64*1024
     shell:
         """
-        samtools fastq -T HP {input.pmd_bam} | minimap2 -y -t {threads} -ax map-ont {input.consensus_fasta} - | \
+        minimap2 -t {threads} -ax map-ont {input.consensus_fasta} {input.lr_fastqs:q} | \
             samtools sort -@ {threads} -o {output.ont_ref_bam} -
         samtools index -@ {threads} {output.ont_ref_bam}
+        """
+
+rule personal_ref_ont_haplotag:
+    input:
+        consensus_fasta = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.fasta",
+        phased_vcf = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.merge.phase.switch_correct.vcf.gz",
+        ont_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.unphased.srt.bam",
+        ont_ref_bai = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.unphased.srt.bam.bai"
+    output:
+        tagged_ont_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.haplotagged.bam",
+        tagged_ont_bai = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.haplotagged.bam.bai"
+    threads: 4
+    resources:
+        mem_mb = 30*1024
+    shell:
+        """
+        whatshap haplotag --ignore-read-groups \
+            --reference {input.consensus_fasta} \
+            --output {output.tagged_ont_bam} \
+            {input.phased_vcf} {input.ont_ref_bam}
+        samtools index -@ {threads} {output.tagged_ont_bam}
         """
 
 rule sample_assembly_vcf_whatshap:
     input:
         consensus_fasta = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.fasta",
         sample_assembly_merge_vcf = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.merge.vcf.gz",
-        ont_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.srt.bam"
+        ont_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.unphased.srt.bam"
     output:
         sample_assembly_merge_whatshap_vcf = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.merge.whatshap_phase.vcf.gz",
         sample_phase_block_list = "c6_draft_assembly/sample_assembly/{sample}/{sample}.phase_block.list"
@@ -185,7 +207,7 @@ rule sample_assembly_vcf_whatshap:
             --reference {input.consensus_fasta} \
             --output {output.sample_assembly_merge_whatshap_vcf} \
             {input.sample_assembly_merge_vcf} \
-            {input.ont_ref_bam} {input.sample_assembly_merge_vcf}
+            {input.ont_ref_bam}
 
         tabix -f {output.sample_assembly_merge_whatshap_vcf}
 
@@ -293,15 +315,16 @@ rule liftover_chrX_par_region:
 
 rule phase_assembly:
     input:
-        tagged_ont_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.srt.bam"
+        tagged_ont_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.haplotagged.bam",
+        lr_fastqs = config['lr_fastqs'],
+        chrX_par_bed = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.chrX_PAR.bed"
     output:
-        hap1_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap1.fasta",
-        hap2_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap2.fasta"
+        hap1_medaka_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap1.medaka.fasta",
+        hap2_medaka_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap2.medaka.fasta"
     params:
+        sex = get_sex,
         medaka_model = config['medaka_model'],
         assembly_dir = "c6_draft_assembly/sample_assembly/{sample}/assembly"
-    singularity:
-        f"{PIGA_DIR}/scripts/draft_assembly/assembly.sif"
     threads: 16
     resources:
         mem_mb = 150*1024
@@ -309,9 +332,65 @@ rule phase_assembly:
         """
         python3 {PIGA_DIR}/scripts/draft_assembly/ont_hifiasm_assembly.py \
             --tagged-bam {input.tagged_ont_bam} \
+            --read-fastqs {input.lr_fastqs:q} \
+            --sex {params.sex} --par-bed {input.chrX_par_bed} \
             --medaka-model {params.medaka_model} \
             --output-dir {params.assembly_dir} \
             --sample {wildcards.sample} --threads {threads}
+        """
+
+rule short_read_polish_haplotype:
+    input:
+        medaka_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap{hap}.medaka.fasta",
+        sr_fq1 = config['sr_fastqs'][0],
+        sr_fq2 = config['sr_fastqs'][1]
+    output:
+        hap_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap{hap}.fasta",
+        hap_fai = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap{hap}.fasta.fai"
+    params:
+        workdir = "c6_draft_assembly/sample_assembly/{sample}/assembly/short_read_polish/hap{hap}",
+        raw_bam = "c6_draft_assembly/sample_assembly/{sample}/assembly/short_read_polish/hap{hap}/reads.bam",
+        dedup_bam = "c6_draft_assembly/sample_assembly/{sample}/assembly/short_read_polish/hap{hap}/reads.dedup.bam",
+        raw_vcf = "c6_draft_assembly/sample_assembly/{sample}/assembly/short_read_polish/hap{hap}/variants.raw.vcf.gz",
+        sorted_vcf = "c6_draft_assembly/sample_assembly/{sample}/assembly/short_read_polish/hap{hap}/variants.sorted.vcf.gz",
+        strict_vcf = "c6_draft_assembly/sample_assembly/{sample}/assembly/short_read_polish/hap{hap}/variants.strict.vcf.gz",
+        homopolymer_vcf = "c6_draft_assembly/sample_assembly/{sample}/assembly/short_read_polish/hap{hap}/variants.homopolymer.vcf.gz",
+        polish_vcf = "c6_draft_assembly/sample_assembly/{sample}/assembly/short_read_polish/hap{hap}/variants.polish.vcf.gz",
+        metrics = "c6_draft_assembly/sample_assembly/{sample}/assembly/short_read_polish/hap{hap}/duplicates.metrics"
+    wildcard_constraints:
+        hap = "1|2"
+    threads: 8
+    resources:
+        mem_mb = 64*1024
+    shell:
+        """
+        rm -rf {params.workdir}
+        mkdir -p {params.workdir}
+        bwa index {input.medaka_fa}
+        bwa mem -R '@RG\\tID:{wildcards.sample}\\tSM:{wildcards.sample}\\tPL:ILLUMINA' \
+            -t {threads} -Y {input.medaka_fa} {input.sr_fq1} {input.sr_fq2} | \
+            samtools sort -@ {threads} -o {params.raw_bam} -
+        gatk MarkDuplicates -R {input.medaka_fa} -I {params.raw_bam} \
+            -O {params.dedup_bam} -M {params.metrics}
+        samtools index {params.dedup_bam}
+
+        freebayes -p 2 -f {input.medaka_fa} {params.dedup_bam} | bgzip -c > {params.raw_vcf}
+        tabix -f {params.raw_vcf}
+        bcftools sort -Oz -o {params.sorted_vcf} {params.raw_vcf}
+        bcftools view -i "GT='1/1' & QUAL>1" {params.sorted_vcf} | \
+            bcftools view -i "FORMAT/DP>=12 & FORMAT/AD[0:0]<=0" \
+                -Oz -o {params.strict_vcf}
+        tabix -f {params.strict_vcf}
+        bcftools view -i "GT='1/1' & QUAL>1" {params.sorted_vcf} | \
+            bcftools view -i "FORMAT/DP>=6 & FORMAT/DP<12 & FORMAT/AD[0:0]<=0" | \
+            python3 {PIGA_DIR}/scripts/draft_assembly/homopolymer_extract.py | \
+            bgzip -c > {params.homopolymer_vcf}
+        tabix -f {params.homopolymer_vcf}
+        bcftools concat -a {params.strict_vcf} {params.homopolymer_vcf} \
+            -Oz -o {params.polish_vcf}
+        tabix -f {params.polish_vcf}
+        bcftools consensus -f {input.medaka_fa} -H 1 {params.polish_vcf} > {output.hap_fa}
+        samtools faidx {output.hap_fa}
         """
 
 checkpoint assembly_list:

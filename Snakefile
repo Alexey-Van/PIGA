@@ -122,7 +122,11 @@ else:
     include: "rules/infer_diploid_path.smk"
     rule all:
         input:
-            rules.all_infer_diploid_path.input
+            sr_snv = rules.all_call_sr_snv.input,
+            lr_snv = rules.all_call_lr_snv.input,
+            merged_snv = rules.all_merge_snv.input,
+            phased_snv = rules.all_phase_snv.input,
+            final_assembly = rules.all_infer_diploid_path.input
 
         
 #allow_missing=True
