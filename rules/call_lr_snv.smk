@@ -5,7 +5,7 @@ rule all_call_lr_snv:
 
 rule lr_ont_minimap2_map:
     input:
-        ont_fq = config['lr_fastqs'],
+        ont_fq = get_lr_input_fastqs,
         ref = config['reference']['CHM13']
     output:
         ont_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.ont.srt.bam"

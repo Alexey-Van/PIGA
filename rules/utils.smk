@@ -1,8 +1,31 @@
 def get_sr_input_fastqs(wildcards):
-    return config["sr_fastqs"]
+    return get_sample_fastqs("sr_fastqs", wildcards)
 
 def get_lr_input_fastqs(wildcards):
-    return config["lr_fastqs"]
+    return get_sample_fastqs("lr_fastqs", wildcards)
+
+def get_sample_fastqs(config_key, wildcards):
+    """Resolve FASTQ paths for one sample; multi-sample configs must map by sample."""
+    configured = config[config_key]
+    sample = wildcards.sample
+    if isinstance(configured, dict):
+        if sample not in configured:
+            raise ValueError(
+                f"{config_key} has no FASTQ entry for sample {sample!r}; "
+                f"provide a mapping for every sample in config['samples']"
+            )
+        fastqs = configured[sample]
+    else:
+        fastqs = configured if isinstance(configured, list) else [configured]
+        if len(samples_list) > 1 and not any("{sample}" in str(path) for path in fastqs):
+            raise ValueError(
+                f"{config_key} is a shared list of fixed paths, so it would be used "
+                f"for every sample. For multiple samples, use a mapping keyed by "
+                f"sample name, or paths containing '{{sample}}'."
+            )
+    if isinstance(fastqs, str):
+        fastqs = [fastqs]
+    return [str(path).replace("{sample}", sample) for path in fastqs]
 
 def get_sex(wildcards):
     sex = config['sex'][wildcards.sample]

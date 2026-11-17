@@ -28,8 +28,8 @@ rule personal_ref_bwa_map:
     input:
         consensus_fasta = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.fasta",
         consensus_fasta_dict = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.dict",
-        sr_fq1 = config['sr_fastqs'][0],
-        sr_fq2 = config['sr_fastqs'][1]
+        sr_fq1 = lambda wildcards: get_sr_input_fastqs(wildcards)[0],
+        sr_fq2 = lambda wildcards: get_sr_input_fastqs(wildcards)[1]
     output:
         ngs_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.srt.bam"
     threads: 16
@@ -154,7 +154,7 @@ rule merge_variants:
 rule personal_ref_ont_minimap2:
     input:
         consensus_fasta = "c5_personal_ref/sample_reference/{sample}/{sample}.personal_ref.fasta",
-        lr_fastqs = config['lr_fastqs']
+        lr_fastqs = get_lr_input_fastqs
     output:
         ont_ref_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.unphased.srt.bam",
         ont_ref_bai = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.unphased.srt.bam.bai"
@@ -316,7 +316,7 @@ rule liftover_chrX_par_region:
 rule phase_assembly:
     input:
         tagged_ont_bam = "c6_draft_assembly/sample_assembly/{sample}/{sample}.ont.haplotagged.bam",
-        lr_fastqs = config['lr_fastqs'],
+        lr_fastqs = get_lr_input_fastqs,
         chrX_par_bed = "c6_draft_assembly/sample_assembly/{sample}/{sample}.personal.chrX_PAR.bed"
     output:
         hap1_medaka_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap1.medaka.fasta",
@@ -342,8 +342,8 @@ rule phase_assembly:
 rule short_read_polish_haplotype:
     input:
         medaka_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap{hap}.medaka.fasta",
-        sr_fq1 = config['sr_fastqs'][0],
-        sr_fq2 = config['sr_fastqs'][1]
+        sr_fq1 = lambda wildcards: get_sr_input_fastqs(wildcards)[0],
+        sr_fq2 = lambda wildcards: get_sr_input_fastqs(wildcards)[1]
     output:
         hap_fa = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap{hap}.fasta",
         hap_fai = "c6_draft_assembly/sample_assembly/{sample}/assembly/{sample}.hap{hap}.fasta.fai"

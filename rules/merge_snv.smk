@@ -133,8 +133,8 @@ rule final_merge:
 #use merylIndex to represent the whole {sample}.meryl directory.
 rule prepare_sample_kmer:
     input:
-        sr_fq1 = config['sr_fastqs'][0],
-        sr_fq2 = config['sr_fastqs'][1],
+        sr_fq1 = lambda wildcards: get_sr_input_fastqs(wildcards)[0],
+        sr_fq2 = lambda wildcards: get_sr_input_fastqs(wildcards)[1],
     output:
         sample_meryl = "c3_merge_snv/sample_meryl/{sample}/{sample}.meryl/merylIndex"
     threads: 4

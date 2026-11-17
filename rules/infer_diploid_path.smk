@@ -18,8 +18,8 @@ rule all_infer_diploid_path:
 
 rule kmc_prepare_sample_kmer:
     input:
-        sr_fq1 = config['sr_fastqs'][0],
-        sr_fq2 = config['sr_fastqs'][1],
+        sr_fq1 = lambda wildcards: get_sr_input_fastqs(wildcards)[0],
+        sr_fq2 = lambda wildcards: get_sr_input_fastqs(wildcards)[1],
     output:
         kmer_list = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.kmer.list",
         kff = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.kmer.kff"
@@ -235,7 +235,7 @@ rule genotype_phase:
 
 rule sample_ref_realign:
     input:
-        ont_fq = config['lr_fastqs'],
+        ont_fq = get_lr_input_fastqs,
         merge_ref_fasta = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.ref.fasta",
     output:
         ont_bam = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.ref.ont.bam")
@@ -453,7 +453,7 @@ rule validate_sv:
         complete_assembly_hap2_fa = "c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hap2.complete_assembly.fasta",
         complete_assembly_phase_assembly_hap1_sv_vcf = "c8_diploid_path_infer/sample_assembly/{sample}.hap1.complete_assembly.phase_assembly.sv.vcf",
         complete_assembly_phase_assembly_hap2_sv_vcf = "c8_diploid_path_infer/sample_assembly/{sample}.hap2.complete_assembly.phase_assembly.sv.vcf",
-        ont_fq = config['lr_fastqs']
+        ont_fq = get_lr_input_fastqs
     output:
         complete_assembly_ont_reads_hap1_bam = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hap1.complete_assembly.ont.bam"),
         complete_assembly_ont_reads_hap2_bam = temp("c8_diploid_path_infer/sample_assembly/{sample}/{sample}.hap2.complete_assembly.ont.bam"),

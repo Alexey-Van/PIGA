@@ -62,11 +62,30 @@ The configuration file should contain:
   - Column 1: Sample name
   - Column 2: Sample sex
 
-- `sr_fastqs`: Paths to the paired-end short-read FASTQ files.
-  Use `{sample}` as a wildcard.
+- `sr_fastqs`: Paired-end short-read FASTQ files. For multiple samples, map each sample name to its own R1/R2 paths.
 
-- `lr_fastqs`: Paths to ONT long-read FASTQ files.
-  Use `{sample}` as a wildcard.
+- `lr_fastqs`: ONT long-read FASTQ files. For multiple samples, map each sample name to its own list of FASTQ paths (including all runs/parts for that sample).
+
+Example for two samples:
+
+```yaml
+sr_fastqs:
+  "000000000500":
+    - /data/sample500_R1.fastq.gz
+    - /data/sample500_R2.fastq.gz
+  "000000000600":
+    - /data/sample600_R1.fastq.gz
+    - /data/sample600_R2.fastq.gz
+
+lr_fastqs:
+  "000000000500":
+    - /data/sample500_ont_run1.fastq.gz
+    - /data/sample500_ont_run2.fastq.gz
+  "000000000600":
+    - /data/sample600_ont_run1.fastq.gz
+```
+
+For a single sample, a simple list of exact paths is also accepted. Path templates containing `{sample}` are supported as well. A shared list of fixed paths is rejected when `samples` contains multiple samples, to prevent mixing reads between samples.
 
 - `medaka_model`: Medaka model matching the ONT flow cell chemistry and basecaller model. `auto` asks Medaka to select a model from read metadata; set an explicit Medaka model name if the FASTQ files do not retain basecaller metadata.
 

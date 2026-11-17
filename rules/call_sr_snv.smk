@@ -19,8 +19,8 @@ rule ref_index:
 
 rule sr_bwa_map:
     input:
-        sr_fq1 = config['sr_fastqs'][0],
-        sr_fq2 = config['sr_fastqs'][1],
+        sr_fq1 = lambda wildcards: get_sr_input_fastqs(wildcards)[0],
+        sr_fq2 = lambda wildcards: get_sr_input_fastqs(wildcards)[1],
         ref = config['reference']['CHM13'],
         ref_index = config['reference']['CHM13'] + ".bwt"
     output:
