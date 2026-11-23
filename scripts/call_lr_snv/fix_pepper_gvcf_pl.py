@@ -15,11 +15,13 @@ import argparse
 import gzip
 import math
 import sys
+from typing import List
 
 
 def genotype_count(alleles: int, ploidy: int) -> int:
     """Number of unordered genotypes for allele count and ploidy."""
-    return math.comb(alleles + ploidy - 1, ploidy)
+    n = alleles + ploidy - 1
+    return math.factorial(n) // (math.factorial(ploidy) * math.factorial(n - ploidy))
 
 
 def open_text(path: str):
@@ -31,7 +33,7 @@ def open_text(path: str):
     return open(path, "rt", encoding="utf-8")
 
 
-def fix_record(line: str, repaired: list[int]) -> str:
+def fix_record(line: str, repaired: List[int]) -> str:
     fields = line.rstrip("\n").split("\t")
     if len(fields) < 10:
         return line
