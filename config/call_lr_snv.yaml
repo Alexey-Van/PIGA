@@ -5,6 +5,11 @@ samples: test_data/samples.list
 lr_fastqs:
   - test_data/{sample}/{sample}.ont.fastq.gz
 
+# Additional GLnexus allele-quality filter applied after joint calling.
+# The GLnexus DeepVariant preset in the current ONT workflow uses AQ thresholds
+# of 10 internally; keep this post-filter aligned unless calibrated otherwise.
+lr_min_aq: 10
+
 #https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/analysis_set/chm13v2.0.fa.gz
 reference:
   CHM13: test_data/reference/chm13v2.0.fasta

@@ -2,6 +2,17 @@ rule all_phase_snv:
     input:
         expand("c4_phase_snv/sample_vcf/{sample}/{sample}.shapeit.vcf.gz", sample=samples_list)
 
+# Filtering singletons is useful for large cohorts, but can remove genuine
+# private variants in small cohorts. Preserve historical behavior by default.
+PHASE_FILTER_SINGLETONS = config.get("phase_filter_singletons", True)
+PHASE_MERGED_VCF_LABEL = (
+    "unphase_singleton_filter" if PHASE_FILTER_SINGLETONS else "singletons_retained"
+)
+PHASE_SINGLETON_FILTER = (
+    '-e "N_PASS(GT==\'0|1\' || GT==\'1|0\')==0 && (AN-AC<=1 || AC<=1)"'
+    if PHASE_FILTER_SINGLETONS else ""
+)
+
 rule generate_sample_vcf_to_phase:
     input:
         merge_merfin_filter_vcf=get_merge_merfin_filter_vcf_input,
@@ -44,7 +55,9 @@ rule merge_consensus_whatshap_vcf:
         ref=config['reference']['CHM13']
     output:
         merge_whatshap_vcf=f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.vcf.gz",
-        merge_whatshap_filter_vcf=f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.unphase_singleton_filter.vcf.gz"
+        merge_whatshap_filter_vcf=f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.{PHASE_MERGED_VCF_LABEL}.vcf.gz"
+    params:
+        singleton_filter=PHASE_SINGLETON_FILTER
     threads: 4
     resources:
         mem_mb=30*1024
@@ -52,13 +65,13 @@ rule merge_consensus_whatshap_vcf:
         """
         bcftools merge --threads {threads} -0 -m any {input.phase_sample_vcfs} -O z -o {output.merge_whatshap_vcf}
         bcftools norm --threads {threads} -m -any -f {input.ref} {output.merge_whatshap_vcf} | \\
-        bcftools view --threads {threads} -v snps -e "N_PASS(GT=='0|1' || GT=='1|0')==0 && (AN-AC<=1 || AC<=1)" -o {output.merge_whatshap_filter_vcf}
+        bcftools view --threads {threads} -v snps {params.singleton_filter} -o {output.merge_whatshap_filter_vcf}
         tabix -f {output.merge_whatshap_filter_vcf}
         """
 
 rule chr_consensus_vcf_shapeit:
     input:
-        merge_whatshap_filter_vcf=f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.unphase_singleton_filter.vcf.gz"
+        merge_whatshap_filter_vcf=f"c4_phase_snv/merged_vcf/{config['prefix']}.consensus.whatshap.{PHASE_MERGED_VCF_LABEL}.vcf.gz"
     output:
         consensus_whatshap_shapeit_vcf=f"c4_phase_snv/chr_vcf/{{chr}}/{config['prefix']}.consensus.whatshap.shapeit.{{chr}}.vcf.gz"
     threads: 16

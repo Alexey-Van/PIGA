@@ -119,7 +119,8 @@ rule lr_glnexus:
         glnexus_vcf = f"c2_call_lr_snv/chr_vcf/{config['prefix']}.deepvariant.filter.biallelic_snp.{{chrom}}.vcf.gz",
         glnexus_vcf_tbi = f"c2_call_lr_snv/chr_vcf/{config['prefix']}.deepvariant.filter.biallelic_snp.{{chrom}}.vcf.gz.tbi"
     params:
-        chr_db = "c2_call_lr_snv/chr_vcf/{chrom}_db"
+        chr_db = "c2_call_lr_snv/chr_vcf/{chrom}_db",
+        min_aq = config.get("lr_min_aq", 10)
     threads: 16
     resources:
         max_mem_gb = 200,
@@ -141,7 +142,7 @@ rule lr_glnexus:
 
         bcftools view --threads {threads} {output.glnexus_bcf} | \
             bcftools norm --threads {threads} -m -any -f {input.ref} |\
-            bcftools view --threads {threads} -i "AQ>40" |\
+            bcftools view --threads {threads} -i "AQ>{params.min_aq}" |\
             bcftools norm --threads {threads} -m +any |\
             bcftools view --threads {threads} -m2 -M2 -v snps |\
             bcftools norm --threads {threads} -m -any |\
@@ -163,12 +164,20 @@ rule glnexus_vcf_merge:
         """
         bcftools concat --threads {threads} -Oz -o {output.merged_glnexus_vcf} {input.glnexus_vcfs}
 
-        tabix -f {output.merged_glnexus_vcf}
         """
+
+rule index_lr_glnexus_vcf:
+    input:
+        vcf = f"c2_call_lr_snv/merged_vcf/{config['prefix']}.deepvariant.filter.biallelic_snp.vcf.gz"
+    output:
+        tbi = f"c2_call_lr_snv/merged_vcf/{config['prefix']}.deepvariant.filter.biallelic_snp.vcf.gz.tbi"
+    shell:
+        "tabix -f -p vcf {input.vcf}"
 
 rule lr_whatshap_genotype:
     input:
         merged_glnexus_vcf = f"c2_call_lr_snv/merged_vcf/{config['prefix']}.deepvariant.filter.biallelic_snp.vcf.gz",
+        merged_glnexus_vcf_tbi = f"c2_call_lr_snv/merged_vcf/{config['prefix']}.deepvariant.filter.biallelic_snp.vcf.gz.tbi",
         ont_bam = "c2_call_lr_snv/sample_bam/{sample}/{sample}.ont.srt.bam",
         ref = config['reference']['CHM13']
     output:

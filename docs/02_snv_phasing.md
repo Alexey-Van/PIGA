@@ -42,6 +42,8 @@ Use `{sample}` as a wildcard.
 If omitted, the workflow will use the default:
 `c2_call_lr_snv/sample_bam/{sample}/{sample}.ont.srt.bam`
 
+`phase_filter_singletons` _(optional; default `true`)_: Controls the cohort-level filter for unphased SNPs whose alternate or reference allele count is at most one. Set it to `false` for small cohorts to retain private singleton variants. With two diploid samples, a genuine heterozygous variant in only one sample has `AC=1` and can be removed by this filter. This option affects the merged VCF used by `c4_phase_snv`; it does not alter the original per-sample calls.
+
 ### Usage
 
 ```bash

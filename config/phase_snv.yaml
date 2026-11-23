@@ -6,6 +6,8 @@ reference:
   CHM13: test_data/reference/chm13v2.0.fasta
 
 prefix: test
+# Set false for small cohorts to retain unphased singleton variants.
+phase_filter_singletons: true
 #if no "merge_merfin_filter_vcf" key, default input will be c3_merge_snv/merfin/merge/{config['prefix']}.consensus.merfin.vcf.gz
 #merge_merfin_filter_vcf: ""
 

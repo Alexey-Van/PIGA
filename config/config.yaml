@@ -32,3 +32,7 @@ external_assembly_list: test_data/external_assembly.list
 train_sample_list: test_data/train_sample.list
 
 prefix: test
+
+# Set false for small cohorts (for example, two diploid genomes) to retain
+# unphased variants carried by only one allele copy.
+phase_filter_singletons: true

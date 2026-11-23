@@ -88,6 +88,8 @@ Use `{sample}` as a wildcard; it will be automatically replaced with sample name
 
 The ONT caller uses PEPPER-Margin-DeepVariant's R10 Q20 profile and produces gVCFs for the existing GLnexus joint-calling step.
 
+`lr_min_aq` _(optional)_: Additional minimum GLnexus allele-quality threshold applied after joint calling (`AQ > lr_min_aq`). It defaults to `10`, matching the `min_AQ1`/`min_AQ2` values shown by the GLnexus DeepVariant preset. Calibrate this threshold against an appropriate truth set before using a stricter value for production.
+
 `reference`:
 
 - `CHM13`: Provide the path to the T2T CHM13 human reference genome (FASTA format, indexed by `samtools faidx`).
