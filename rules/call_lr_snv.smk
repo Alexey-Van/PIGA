@@ -71,10 +71,14 @@ rule lr_ont_dv:
         if [ ! -s "$phased_vcf" ]; then echo "PEPPER phased VCF not found: $phased_vcf" >&2; exit 1; fi
         if [ ! -s "$phased_bam" ]; then echo "PEPPER haplotagged BAM not found: $phased_bam" >&2; exit 1; fi
         cp "$final_vcf" {output.dv_vcf}
-        cp "$final_gvcf" {output.dv_gvcf}
+        # PEPPER/DeepVariant can emit five PL values for diploid records with
+        # ALT=<real allele>,<*>. GLnexus expects all six Number=G values, so
+        # normalize only this known trailing likelihood omission before joint calling.
+        set -o pipefail
+        python {PIGA_DIR}/scripts/call_lr_snv/fix_pepper_gvcf_pl.py "$final_gvcf" | \
+            bgzip -c > {output.dv_gvcf}
         bcftools view -Oz -o {output.pmd_phased_vcf} "$phased_vcf"
         cp "$phased_bam" {output.pmd_haplotag_bam}
-        tabix -f {output.dv_gvcf}
         tabix -f {output.pmd_phased_vcf}
         samtools index -@ {threads} {output.pmd_haplotag_bam}
         """
@@ -88,8 +92,19 @@ rule prepare_chr_bed:
         mem_mb = 10*1024
     shell:
         """
+        mkdir -p $(dirname {output.chr_bed})
         awk -v OFS='\\t' -v chrom={wildcards.chrom} '{{if($1==chrom)print $1,"0",$2}}' {input.ref_fai} > {output.chr_bed}
         """
+
+# Keep the gVCF index as a tracked DAG output. If an old .tbi predates the
+# gVCF, Snakemake reruns this rule before GLnexus reads the file.
+rule index_lr_gvcf:
+    input:
+        gvcf = "c2_call_lr_snv/sample_gvcf/{sample}/{sample}.deepvariant.g.vcf.gz"
+    output:
+        tbi = "c2_call_lr_snv/sample_gvcf/{sample}/{sample}.deepvariant.g.vcf.gz.tbi"
+    shell:
+        "tabix -f -p vcf {input.gvcf}"
 
 # gvcf_map = f"c2_call_lr_snv/sample_gvcf/{config['prefix']}.deepvariant.gvcf.map",
         #ls {input.dv_gvcfs} > {output.gvcf_map}
@@ -97,7 +112,8 @@ rule lr_glnexus:
     input:
         ref = config['reference']['CHM13'],
         chr_bed = "c2_call_lr_snv/chr_vcf/chr_bed/chm13.{chrom}.bed",
-        dv_gvcfs = expand("c2_call_lr_snv/sample_gvcf/{sample}/{sample}.deepvariant.g.vcf.gz", sample=samples_list)
+        dv_gvcfs = expand("c2_call_lr_snv/sample_gvcf/{sample}/{sample}.deepvariant.g.vcf.gz", sample=samples_list),
+        dv_gvcf_tbis = expand("c2_call_lr_snv/sample_gvcf/{sample}/{sample}.deepvariant.g.vcf.gz.tbi", sample=samples_list)
     output:
         glnexus_bcf = f"c2_call_lr_snv/chr_vcf/{config['prefix']}.deepvariant.{{chrom}}.bcf",
         glnexus_vcf = f"c2_call_lr_snv/chr_vcf/{config['prefix']}.deepvariant.filter.biallelic_snp.{{chrom}}.vcf.gz",
