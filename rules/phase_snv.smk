@@ -18,7 +18,8 @@ rule generate_sample_vcf_to_phase:
         merge_merfin_filter_vcf=get_merge_merfin_filter_vcf_input,
         ref=config['reference']['CHM13']
     output:
-        unphase_sample_vcf="c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.vcf.gz"
+        unphase_sample_vcf="c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.vcf.gz",
+        unphase_sample_vcf_tbi="c4_phase_snv/sample_vcf/{sample}/{sample}.consensus.vcf.gz.tbi"
     threads: 4
     resources:
         mem_mb=30*1024
@@ -28,6 +29,7 @@ rule generate_sample_vcf_to_phase:
         bcftools view --threads {threads} -e 'GT==\"0/0\" | GT==\"0|0\"' | \\
         bcftools norm --threads {threads} -m +any -f {input.ref} | \\
         whatshap unphase - | bgzip -@ {threads} -c > {output.unphase_sample_vcf}
+        tabix -f -p vcf {output.unphase_sample_vcf}
         """
 
 rule consensus_vcf_whatshap_phase:

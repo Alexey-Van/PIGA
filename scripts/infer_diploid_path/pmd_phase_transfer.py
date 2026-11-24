@@ -27,11 +27,17 @@ def main():
             if gt and len(gt) == 2 and call.phased and ps is not None:
                 phases[allele_key(record)] = (tuple(gt), ps)
 
-    with pysam.VariantFile(args.input_vcf) as source:
+    # Open the source without requiring an index: this script streams through
+    # every record, so random access is not needed and Snakemake may not have
+    # created a .tbi for this intermediate VCF.
+    with pysam.VariantFile(args.input_vcf, "r") as source:
         if args.sample not in source.header.samples:
             raise ValueError(f"Sample {args.sample} missing from consensus VCF")
         header = source.header.copy()
-        if "PS" not in header.formats:
+        # PS is required before mutating records. Header-format membership can
+        # differ between pysam/htslib versions, so inspect the actual format
+        # definitions and add it if absent.
+        if not any(line.key == "FORMAT" and line.get("ID") == "PS" for line in header.records):
             header.formats.add("PS", 1, "Integer", "Phase set from PEPPER-Margin")
         with pysam.VariantFile(args.output_vcf, "wz", header=header) as out:
             matched = 0
