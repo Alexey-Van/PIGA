@@ -42,6 +42,10 @@ def main():
         with pysam.VariantFile(args.output_vcf, "wz", header=header) as out:
             matched = 0
             for record in source:
+                # Records are associated with the source header. Translate
+                # them to the output header so newly declared FORMAT fields
+                # (notably PS) are recognized when sample values are set.
+                record.translate(header)
                 match = phases.get(allele_key(record))
                 if match:
                     gt, ps = match

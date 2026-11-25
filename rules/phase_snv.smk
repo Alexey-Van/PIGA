@@ -29,6 +29,7 @@ rule generate_sample_vcf_to_phase:
         bcftools view --threads {threads} -e 'GT==\"0/0\" | GT==\"0|0\"' | \\
         bcftools norm --threads {threads} -m +any -f {input.ref} | \\
         whatshap unphase - | bgzip -@ {threads} -c > {output.unphase_sample_vcf}
+        rm -f {output.unphase_sample_vcf}.tbi {output.unphase_sample_vcf}.csi
         tabix -f -p vcf {output.unphase_sample_vcf}
         """
 
