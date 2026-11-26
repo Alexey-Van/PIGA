@@ -132,10 +132,9 @@ def main():
             str(args.threads),
             "-f",
         ]
-        if args.medaka_model.lower() == "auto":
-            medaka.extend(["--auto_model", "consensus", reads])
-        else:
-            medaka.extend(["-m", args.medaka_model])
+        # medaka_consensus accepts an explicit model via -m; --auto_model is
+        # not a medaka_consensus option (model resolution is a separate tool).
+        medaka.extend(["-m", args.medaka_model])
         run(medaka)
 
         output_fasta = os.path.join(

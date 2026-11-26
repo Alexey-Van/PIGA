@@ -48,7 +48,7 @@ Use `{sample}` as a wildcard; it will be automatically replaced with sample name
 `lr_fastqs`: Specify the path(s) to ONT long-read FASTQ files.
 Use `{sample}` as a wildcard.
 
-`medaka_model`: Medaka consensus model matching the flow cell chemistry and basecaller. `auto` selects from read metadata; use an explicit model name if that metadata is missing.
+`medaka_model`: Medaka consensus model matching the flow cell chemistry and basecaller. The default configuration uses `r1041_e82_400bps_sup_g615` for R10.4.1, 400 bps SUP reads. Use the matching HAC or speed-specific model if reads were basecalled with different settings.
 
 `reference`:
 
